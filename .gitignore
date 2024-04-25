@@ -12,3 +12,11 @@ wandb*
 
 #pycache
 __pycache__
+
+# Virtual environment files
+env/
+venv/
+.env
+.venv
+ENV/
+VENV/
