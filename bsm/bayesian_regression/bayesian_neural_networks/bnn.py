@@ -396,10 +396,12 @@ class BayesianNeuralNet(BayesianRegressionModel[BNNState]):
 
     def derivative(self, input: chex.Array, bnn_state: BNNState) -> chex.Array:
         chex.assert_shape(input, (self.input_dim,))
-
-        def model_output(params, input):
-            return self.apply_eval(params, input, bnn_state.data_stats)[0]
-        jacobian_fn = jax.jacobian(model_output, argnums=1)
-        jacobian_matrix = jacobian_fn(bnn_state.vmapped_params, input)
-        derivative = jnp.transpose(jacobian_matrix)
-        return derivative
+        print(f"Input of shape {input.shape}")
+        def model_output(input, bnn_state) -> jax.Array:
+            f_dist, _ = self.posterior(input, bnn_state)
+            result = f_dist.mean()[0]
+            return result
+        
+        gradient = jax.grad(model_output, argnums=0)(input, bnn_state)
+        print(f"Gradient of shape {gradient.shape}")
+        return gradient
