@@ -50,7 +50,6 @@ class BNNStatisticalModel(StatisticalModel[BNNState]):
         assert beta.shape == (self.output_dim,)
         return StatisticalModelState(model_state=new_model_state, beta=beta)
 
-
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 

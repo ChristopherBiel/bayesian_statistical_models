@@ -393,3 +393,13 @@ class BayesianNeuralNet(BayesianRegressionModel[BNNState]):
 
         new_model_state = new_model_state.replace(calibration_alpha=calibrate_alpha)
         return new_model_state
+
+    def derivative(self, input: chex.Array, bnn_state: BNNState) -> chex.Array:
+        chex.assert_shape(input, (self.input_dim,))
+
+        def model_output(params, input):
+            return self.apply_eval(params, input, bnn_state.data_stats)[0]
+        jacobian_fn = jax.jacobian(model_output, argnums=1)
+        jacobian_matrix = jacobian_fn(bnn_state.vmapped_params, input)
+        derivative = jnp.transpose(jacobian_matrix)
+        return derivative

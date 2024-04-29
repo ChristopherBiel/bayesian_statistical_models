@@ -68,3 +68,17 @@ class StatisticalModel(ABC, Generic[ModelState]):
         model_state = self.model.init(key)
         beta = jnp.ones(self.output_dim)
         return StatisticalModelState(model_state=model_state, beta=beta)
+    
+    def _derivative(self,
+                   input: chex.Array,
+                   stats_model_state: StatisticalModelState[ModelState]) -> chex.Array:
+        derivative = self.model.derivative(input=input, bnn_state=stats_model_state.model_state)
+        assert derivative.shape == (self.output_dim,)
+        return derivative
+    
+    def derivative_batch(self,
+                         input: chex.Array,
+                         statistical_model_state: StatisticalModelState[ModelState]) -> chex.Array:
+        ders = vmap(self._derivative, in_axes=(0, self.vmap_input_axis(0)),
+                    out_axes=self.vmap_output_axis(0))(input, statistical_model_state)
+        return ders
