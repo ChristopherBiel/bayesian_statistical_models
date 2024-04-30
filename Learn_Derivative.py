@@ -1,12 +1,38 @@
 import jax.numpy as jnp
 import jax.random as jr
+import chex
+import optax
 
+from jax import vmap
+
+from bsm.bayesian_regression.bayesian_neural_networks.bnn import BNNState, BayesianNeuralNet
 from bsm.bayesian_regression.bayesian_neural_networks.deterministic_ensembles import DeterministicEnsemble
 from bsm.bayesian_regression.bayesian_neural_networks.probabilistic_ensembles import ProbabilisticEnsemble
 from bsm.statistical_model.bnn_statistical_model import BNNStatisticalModel
 from bsm.utils.normalization import Data
 
+class SmootherNet(BNNStatisticalModel[BNNState]):
+    def __init__(self, *args, **kwargs):
+        super.__init__(*args, **kwargs)
 
+    def _splitDataset(self, data: Data) -> (list[Data], int):
+        pass
+
+    def _learnOneDerivative(self, key, data: Data):
+        init_model_state = self.init(key)
+        statistical_model_state = self.update(stats_model_state=init_model_state, data=data)
+        derivative = self.derivative_batch(data.inputs, statistical_model_state=statistical_model_state)
+        return derivative
+    
+    def addDerivativeToDataset(self, key, data: Data):
+        # Split the different trajectories in the data into separate datasets
+        data_list, num_datasets = self._splitDataset(data)
+        learn = vmap(self._learnOneDerivative, in_axes=(0, 0))
+        keys = jr.split(key, num_datasets)
+        derivatives = learn(keys, data_list)
+        # somehow add the derivatives to the data (probably to the output data)
+        return data
+    
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
@@ -25,7 +51,7 @@ if __name__ == '__main__':
     data = Data(inputs=t, outputs=x)
 
     model = BNNStatisticalModel(input_dim=input_dim, output_dim=output_dim, output_stds=data_std, logging_wandb=False,
-                                beta=jnp.array([1.0]), num_particles=10, features=[28, 32, 16],
+                                beta=jnp.array([1.0]), num_particles=10, features=[64, 64, 32],
                                 bnn_type=DeterministicEnsemble, train_share=0.6, num_training_steps=2000,
                                 weight_decay=1e-4, )
 
@@ -38,17 +64,17 @@ if __name__ == '__main__':
 
     preds = model.predict_batch(test_t, statistical_model_state)
 
-    #plt.scatter(test_t.reshape(-1), test_x, label='Data', color='red')
-    #plt.plot(test_t, preds.mean, label='Mean', color='blue')
-    #plt.fill_between(test_t.reshape(-1),
-    #                 (preds.mean - preds.statistical_model_state.beta * preds.epistemic_std).reshape(-1),
-    #                 (preds.mean + preds.statistical_model_state.beta * preds.epistemic_std).reshape(-1),
-    #                 label=r'$2\sigma$', alpha=0.3, color='blue')
-    #handles, labels = plt.gca().get_legend_handles_labels()
-    #plt.plot(test_t.reshape(-1), test_x, label='True', color='green')
-    #by_label = dict(zip(labels, handles))
-    #plt.legend(by_label.values(), by_label.keys())
-    #plt.show()
+    plt.scatter(test_t.reshape(-1), test_x, label='Data', color='red')
+    plt.plot(test_t, preds.mean, label='Mean', color='blue')
+    plt.fill_between(test_t.reshape(-1),
+                     (preds.mean - preds.statistical_model_state.beta * preds.epistemic_std).reshape(-1),
+                     (preds.mean + preds.statistical_model_state.beta * preds.epistemic_std).reshape(-1),
+                     label=r'$2\sigma$', alpha=0.3, color='blue')
+    handles, labels = plt.gca().get_legend_handles_labels()
+    plt.plot(test_t.reshape(-1), test_x, label='True', color='green')
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys())
+    plt.show()
 
     num_test_points = 1000
     in_domain_test_t = jnp.linspace(d_l, d_u, num_test_points).reshape(-1, 1)
@@ -63,4 +89,3 @@ if __name__ == '__main__':
     plt.plot(in_domain_test_t, derivative, label='Predicted Derivative', color='Black')
     plt.legend()
     plt.show()
-    plt.savefig('bnn.pdf')
