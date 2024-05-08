@@ -11,14 +11,34 @@ from bsm.bayesian_regression.bayesian_neural_networks.probabilistic_ensembles im
 from bsm.statistical_model.bnn_statistical_model import BNNStatisticalModel
 from bsm.utils.normalization import Data
 
-class SmootherNet(BNNStatisticalModel[BNNState]):
-    def __init__(self, *args, **kwargs):
-        super.__init__(*args, **kwargs)
+class SmootherNet(BNNStatisticalModel):
+    def __init__(self,
+                 input_dim: int,
+                 output_dim: int,
+                 num_training_steps: int = 1000,
+                 *args, **kwargs):
+        super().__init__(input_dim=input_dim,
+                       output_dim=output_dim,
+                       num_training_steps=num_training_steps,
+                       *args, **kwargs)
 
     def _splitDataset(self, data: Data) -> (list[Data], int):
-        pass
+        """Splits the full Dataset into the individual trajectories,
+        based on the timestamps (every time there is a jump backwards in the timestamp the data is cut)"""
+        t = data.inputs
+        assert t.shape[1] == 1
+        delta_t = jnp.diff(t, axis=0)
+        indices = jnp.where(delta_t < 0.0)[0] + 1
+        ts = jnp.split(t, indices)
+        xs = jnp.split(data.outputs, indices)
+        data_list = []
+        for i, input in enumerate(ts):
+            data_list.append(Data(input, xs[i]))
+        return data_list, i
 
     def _learnOneDerivative(self, key, data: Data):
+        print(f"Input Data shape: {data.inputs.shape}")
+        print(f"Output Data shape: {data.outputs.shape}")
         init_model_state = self.init(key)
         statistical_model_state = self.update(stats_model_state=init_model_state, data=data)
         derivative = self.derivative_batch(data.inputs, statistical_model_state=statistical_model_state)
@@ -26,12 +46,12 @@ class SmootherNet(BNNStatisticalModel[BNNState]):
     
     def addDerivativeToDataset(self, key, data: Data):
         # Split the different trajectories in the data into separate datasets
-        data_list, num_datasets = self._splitDataset(data)
+        # data_list, num_datasets = self._splitDataset(data)
         learn = vmap(self._learnOneDerivative, in_axes=(0, 0))
-        keys = jr.split(key, num_datasets)
-        derivatives = learn(keys, data_list)
+        keys = jr.split(key, data.inputs.shape[0])
+        derivatives = learn(keys, data)
         # somehow add the derivatives to the data (probably to the output data)
-        return data
+        return derivatives
     
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
