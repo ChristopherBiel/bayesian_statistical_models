@@ -102,6 +102,28 @@ class BayesianNeuralNet(BayesianRegressionModel[BNNState]):
         f_dist = ParticleDistribution(means, calibration_alpha=bnn_state.calibration_alpha)
         y_dist = ParticleDistribution(means, aleatoric_stds, calibration_alpha=bnn_state.calibration_alpha)
         return f_dist, y_dist
+    
+    def _single_derivative(self,
+                           params: PyTree,
+                           x: chex.Array,
+                           data_stats: DataStats) -> chex.Array:
+        chex.assert_shape(x, (self.input_dim,))
+        def sel_model_output(params, x, data_stats, ind) -> jax.Array:
+            out, _ = self.apply_eval(params, x, data_stats)
+            return out[ind]
+        grad_single = jax.grad(sel_model_output, argnums=1)
+        v_apply = jax.vmap(grad_single, in_axes=(None, None, None, 0))
+        derivative = v_apply(params, x, data_stats, jnp.arange(self.output_dim)).reshape(-1)
+        assert derivative.shape == (self.output_dim,)
+        return derivative
+
+    def derivative(self, input: chex.Array, bnn_state: BNNState) -> chex.Array:
+        chex.assert_shape(input, (self.input_dim,))
+        v_apply = jax.vmap(self._single_derivative, in_axes=(0, None, None), out_axes=0)
+        derivative = v_apply(bnn_state.vmapped_params, input, bnn_state.data_stats)
+        print(f"Derivative shape: {derivative.shape}")
+        assert derivative.shape == (self.num_particles, self.output_dim)
+        return ParticleDistribution(particle_means=derivative)
 
     @abstractmethod
     def _apply_train(self,
@@ -393,15 +415,3 @@ class BayesianNeuralNet(BayesianRegressionModel[BNNState]):
 
         new_model_state = new_model_state.replace(calibration_alpha=calibrate_alpha)
         return new_model_state
-
-    def derivative(self, input: chex.Array, bnn_state: BNNState) -> chex.Array:
-        chex.assert_shape(input, (self.input_dim,))
-        print(f"Input of shape {input.shape}")
-        def model_output(input, bnn_state) -> jax.Array:
-            f_dist, _ = self.posterior(input, bnn_state)
-            result = f_dist.mean()[0]
-            return result
-        
-        gradient = jax.grad(model_output, argnums=0)(input, bnn_state)
-        print(f"Gradient of shape {gradient.shape}")
-        return gradient

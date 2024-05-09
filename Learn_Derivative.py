@@ -1,111 +1,120 @@
 import jax.numpy as jnp
 import jax.random as jr
-import chex
-import optax
-
 from jax import vmap
-
-from bsm.bayesian_regression.bayesian_neural_networks.bnn import BNNState, BayesianNeuralNet
-from bsm.bayesian_regression.bayesian_neural_networks.deterministic_ensembles import DeterministicEnsemble
-from bsm.bayesian_regression.bayesian_neural_networks.probabilistic_ensembles import ProbabilisticEnsemble
-from bsm.statistical_model.bnn_statistical_model import BNNStatisticalModel
 from bsm.utils.normalization import Data
+from SmootherNet import SmootherNet
+from bsm.bayesian_regression.bayesian_neural_networks.deterministic_ensembles import DeterministicEnsemble
 
-class SmootherNet(BNNStatisticalModel):
-    def __init__(self,
-                 input_dim: int,
-                 output_dim: int,
-                 num_training_steps: int = 1000,
-                 *args, **kwargs):
-        super().__init__(input_dim=input_dim,
-                       output_dim=output_dim,
-                       num_training_steps=num_training_steps,
-                       *args, **kwargs)
+def createTrajectory(num_points, noise_level, d_l, d_u, key):
+    t = jnp.linspace(d_l, d_u, num_points, dtype=jnp.float32).reshape(-1, 1)
+    x = f(t)
+    x_dot_true = f_dot(t)
+    x = x + noise_level * jr.normal(key=key, shape=x.shape)
+    return t, x, x_dot_true
 
-    def _splitDataset(self, data: Data) -> (list[Data], int):
+def createData(num_trajectories, noise_level, key, d_l,
+               min_samples=48, max_samples=64):
+    # Create trajectories of varying length with varying number of points
+    keys = jr.split(key, num_trajectories)
+    num_points = jr.randint(keys[0], shape=(num_trajectories,), minval=min_samples, maxval=max_samples+1)
+    print(f"Number of points: {num_points}")
+    t, x, x_dot = createTrajectory(max_samples, noise_level, d_l, d_l+(num_points[0]-1)/10, keys[0])
+    for i in range(num_trajectories-1):
+        t_traj, x_traj, x_dot_traj = createTrajectory(max_samples, noise_level, d_l, d_l+(num_points[i+1]-1)/10, keys[i+1])
+        t = jnp.concatenate([t, t_traj], axis=0)
+        x = jnp.concatenate([x, x_traj], axis=0)
+        x_dot = jnp.concatenate([x_dot, x_dot_traj], axis=0)
+    return Data(inputs=t, outputs=x), Data(inputs=jnp.concatenate([t, x], axis=1), outputs=x_dot)
+
+def splitDataset(data: Data) -> (list[Data], int):
         """Splits the full Dataset into the individual trajectories,
-        based on the timestamps (every time there is a jump backwards in the timestamp the data is cut)"""
+        based on the timestamps (every time there is a jump backwards in the timestamp the data is cut)
+        The output is still only one dataset, but now with an additional dimension, which is the number of trajectories."""
         t = data.inputs
         assert t.shape[1] == 1
         delta_t = jnp.diff(t, axis=0)
         indices = jnp.where(delta_t < 0.0)[0] + 1
         ts = jnp.split(t, indices)
         xs = jnp.split(data.outputs, indices)
-        data_list = []
-        for i, input in enumerate(ts):
-            data_list.append(Data(input, xs[i]))
-        return data_list, i
+        print(f"Splitting data into {len(ts)} trajectories.")
+        # To be able to stack, all the arrays need to have the same shape
+        # Therefore, we need to pad the arrays with zeros
+        max_length = max([len(traj) for traj in ts])
+        for i in range(len(ts)):
+            ts[i] = jnp.pad(ts[i], ((0, max_length - len(ts[i])), (0, 0)), mode='wrap')
+            xs[i] = jnp.pad(xs[i], ((0, max_length - len(xs[i])), (0, 0)), mode='wrap')
+        inputs = jnp.stack(ts, axis=0)
+        outputs = jnp.stack(xs, axis=0)
+        return Data(inputs=inputs, outputs=outputs), len(ts)
 
-    def _learnOneDerivative(self, key, data: Data):
-        print(f"Input Data shape: {data.inputs.shape}")
-        print(f"Output Data shape: {data.outputs.shape}")
-        init_model_state = self.init(key)
-        statistical_model_state = self.update(stats_model_state=init_model_state, data=data)
-        derivative = self.derivative_batch(data.inputs, statistical_model_state=statistical_model_state)
-        return derivative
-    
-    def addDerivativeToDataset(self, key, data: Data):
-        # Split the different trajectories in the data into separate datasets
-        # data_list, num_datasets = self._splitDataset(data)
-        learn = vmap(self._learnOneDerivative, in_axes=(0, 0))
-        keys = jr.split(key, data.inputs.shape[0])
-        derivatives = learn(keys, data)
-        # somehow add the derivatives to the data (probably to the output data)
-        return derivatives
-    
+def f(t):
+    x = jnp.concatenate([jnp.sin(t) * jnp.cos(0.2*t),
+                         0.04*jnp.power(t, 2) + 0.25*t + 1.4,
+                         0.3*jnp.sin(t)], axis=1)
+    return x 
+
+def f_dot(t):
+    x_dot = jnp.concatenate([jnp.sin(t) * (-0.2) * jnp.sin(0.2*t) + jnp.cos(t) * jnp.cos(0.2*t),
+                             0.08*t + 0.25,
+                             0.3*jnp.cos(t)], axis=1)
+    return x_dot
+
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    # Create the data
-    key = jr.PRNGKey(0)
-    input_dim = 1
-    output_dim = 1
-
+    num_traj = 12
     noise_level = 0.1
     d_l, d_u = 0, 10
-    t = jnp.linspace(d_l, d_u, 64).reshape(-1, 1)
-    x = jnp.sin(t) * jnp.cos(0.2*t)
-    x_dot = jnp.sin(t) * (-0.2) * jnp.sin(0.2*t) + jnp.cos(t) * jnp.cos(0.2*t)
-    x = x + noise_level * jr.normal(key=jr.PRNGKey(0), shape=x.shape)
+    key = jr.PRNGKey(0)
+    length = 64
+    traj_keys= jr.split(key, num_traj)
+
+    data, derivative_data = createData(num_traj, noise_level, key, d_l,
+                                       min_samples=length, max_samples=length)
+    # Split the different trajectories in the data into separate datasets
+    data, num_datasets = splitDataset(data)
+
+    print(f"Data Input shape: {data.inputs.shape}")
+    print(f"Data Output shape: {data.outputs.shape}")
+
+    input_dim = data.inputs.shape[-1]
+    output_dim = data.outputs.shape[-1]
     data_std = noise_level * jnp.ones(shape=(output_dim,))
-    data = Data(inputs=t, outputs=x)
 
-    model = BNNStatisticalModel(input_dim=input_dim, output_dim=output_dim, output_stds=data_std, logging_wandb=False,
-                                beta=jnp.array([1.0]), num_particles=10, features=[64, 64, 32],
-                                bnn_type=DeterministicEnsemble, train_share=0.6, num_training_steps=2000,
-                                weight_decay=1e-4, )
+    model = SmootherNet(input_dim=input_dim,
+                        output_dim=output_dim,
+                        output_stds=data_std,
+                        logging_wandb=False,
+                        beta=jnp.array([1.0, 1.0, 1.0]),
+                        num_particles=8,
+                        features=[128, 128, 64],
+                        bnn_type=DeterministicEnsemble,
+                        train_share=0.6,
+                        num_training_steps=1000,
+                        weight_decay=1e-4,
+                        )
 
-    init_model_state = model.init(key=jr.PRNGKey(0))
-    statistical_model_state = model.update(stats_model_state=init_model_state, data=data)
+    ders = model.calcDerivative(key, data)
 
-    # Test on new data
-    test_t = jnp.linspace(d_l-5, d_u+5, 1000).reshape(-1, 1)
-    test_x = jnp.sin(test_t) * jnp.cos(0.2*test_t)
+    print(f"Derivative mean shape: {ders.mean.shape}")
+    print(f"Derivative epistemic_std shape: {ders.epistemic_std.shape}")
+    print(f"Derivative aleatoric_std shape: {ders.aleatoric_std.shape}")
+    print(f"Derivative beta shape: {ders.statistical_model_state.beta.shape}")
 
-    preds = model.predict_batch(test_t, statistical_model_state)
-
-    plt.scatter(test_t.reshape(-1), test_x, label='Data', color='red')
-    plt.plot(test_t, preds.mean, label='Mean', color='blue')
-    plt.fill_between(test_t.reshape(-1),
-                     (preds.mean - preds.statistical_model_state.beta * preds.epistemic_std).reshape(-1),
-                     (preds.mean + preds.statistical_model_state.beta * preds.epistemic_std).reshape(-1),
-                     label=r'$2\sigma$', alpha=0.3, color='blue')
-    handles, labels = plt.gca().get_legend_handles_labels()
-    plt.plot(test_t.reshape(-1), test_x, label='True', color='green')
-    by_label = dict(zip(labels, handles))
-    plt.legend(by_label.values(), by_label.keys())
-    plt.show()
-
-    num_test_points = 1000
-    in_domain_test_t = jnp.linspace(d_l, d_u, num_test_points).reshape(-1, 1)
-    in_domain_test_x = jnp.sin(in_domain_test_t) * jnp.cos(0.2*in_domain_test_t)
-    in_domain_test_xdot = jnp.sin(in_domain_test_t) * (-0.2) * jnp.sin(0.2*in_domain_test_t) + jnp.cos(in_domain_test_t) * jnp.cos(0.2*in_domain_test_t)
-
-    in_domain_preds = model.predict_batch(in_domain_test_t, statistical_model_state)
-    derivative = model.derivative_batch(in_domain_test_t, statistical_model_state)
-    plt.plot(in_domain_test_t, in_domain_preds.mean, label='Mean', color='blue')
-    plt.plot(in_domain_test_t, in_domain_test_x, label='Fun', color='Green')
-    plt.plot(in_domain_test_t, in_domain_test_xdot, label='Derivative', color='Red')
-    plt.plot(in_domain_test_t, derivative, label='Predicted Derivative', color='Black')
+    # Plot the results for the first three trajectories
+    fig, axes = plt.subplots(3, min(3, num_traj), figsize=(16, 9))
+    for i in range(min(3, num_traj)):
+        for j in range(3):
+            axes[j][i].plot(data.inputs[i,:], data.outputs[i,:,j], label="x")
+            axes[j][i].plot(data.inputs[i,:], ders.mean[i,:,j], label="\dot{x}")
+            axes[j][i].fill_between(data.inputs[i,:].reshape(-1),
+                                    (ders.mean[i,:,j] - ders.statistical_model_state.beta[i,j] * ders.epistemic_std[i,:,j]).reshape(-1),
+                                    (ders.mean[i,:,j] + ders.statistical_model_state.beta[i,j] * ders.epistemic_std[i,:,j]).reshape(-1),
+                                    label=r'$2\sigma$', alpha=0.3, color='blue')
+            axes[j][i].plot(data.inputs[i,:], f_dot(data.inputs[i,:])[:,j], label="\dot{x}_{TRUE}")
+            axes[j][i].set_title(f"Trajectory {i} - x{j}")
+            axes[j][i].grid(True, which='both')
     plt.legend()
+    plt.tight_layout()
     plt.show()
+    plt.savefig('traj_bnn.pdf')

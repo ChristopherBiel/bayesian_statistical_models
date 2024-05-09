@@ -1,42 +1,18 @@
 import jax.numpy as jnp
-import jax.random as jr
-from jax import vmap
-from bsm.utils.normalization import Data
-from Learn_Derivative import SmootherNet
-from bsm.bayesian_regression.bayesian_neural_networks.deterministic_ensembles import DeterministicEnsemble
+from jax import grad, vmap
 
-def createNoisyTrajectory(length, key, noise_level):
-    t = jnp.linspace(0, length/10, length).reshape(-1,1)
-    x = jnp.concatenate([jnp.sin(t) * jnp.cos(0.2*t),
-                         jnp.cos(t) + 0.2*jnp.sin(3*t),
-                         2*(t - length)/(length)*jnp.cos(t)], axis=1)
-    x = x + noise_level * jr.normal(key, shape=x.shape)
+def f(x, y):
+    # y is useless here
+    return jnp.array([[x[0] * 2 + x[4]], [x[1] * 3], [x[2] * 4]])
 
-    return Data(inputs=t, outputs=x)
+# Define a function to compute gradients of each output element w.r.t. input
+def compute_gradients(f, x):
+    # Use vmap to automatically vectorize gradient computation over outputs
+    grad_fn = lambda xi: grad(lambda x: f(x, 4)[xi, 0])(x)
+    gradients = vmap(grad_fn)(jnp.arange(f(x, 4).shape[0]))
+    return gradients.T
 
-num_traj = 12
-noise_level = 0.1
-key = jr.PRNGKey(0)
-length = 64
-traj_keys= jr.split(key, num_traj)
-
-Multi_Data = vmap(createNoisyTrajectory, in_axes=(None, 0, None))(length, traj_keys, noise_level)
-
-input_dim = Multi_Data.inputs.shape[-1]
-output_dim = Multi_Data.outputs.shape[-1]
-data_std = noise_level * jnp.ones(shape=(output_dim,))
-
-model = SmootherNet(input_dim=input_dim,
-                    output_dim=output_dim,
-                    output_stds=data_std,
-                    logging_wandb=False,
-                    beta=jnp.array([1.0, 1.0, 1.0]),
-                    num_particles=16,
-                    features=[64, 64, 32],
-                    bnn_type=DeterministicEnsemble,
-                    train_share=0.6,
-                    num_training_steps=2000,
-                    weight_decay=1e-4,
-                    )
-
-model.addDerivativeToDataset(key, Multi_Data)
+# Example usage
+x = jnp.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])  # Example input
+gradients = compute_gradients(f, x)
+print(gradients.shape)

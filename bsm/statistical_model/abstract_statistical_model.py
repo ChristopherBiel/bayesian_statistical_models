@@ -71,13 +71,17 @@ class StatisticalModel(ABC, Generic[ModelState]):
     
     def _derivative(self,
                    input: chex.Array,
-                   stats_model_state: StatisticalModelState[ModelState]) -> chex.Array:
+                   stats_model_state: StatisticalModelState[ModelState]) -> StatisticalModelOutput[ModelState]:
         chex.assert_shape(input, (self.input_dim,))
-        derivative = self.model.derivative(input=input, bnn_state=stats_model_state.model_state)
-        return derivative
+        part_dist = self.model.derivative(input=input, bnn_state=stats_model_state.model_state)
+        statistical_model = StatisticalModelOutput(mean=part_dist.mean(), epistemic_std=part_dist.stddev(),
+                                                   aleatoric_std=part_dist.aleatoric_std(),
+                                                   statistical_model_state=stats_model_state)
+        return statistical_model
     
     def derivative_batch(self,
                          input: chex.Array,
-                         statistical_model_state: StatisticalModelState[ModelState]) -> chex.Array:
-        ders = vmap(self._derivative, in_axes=[0, None])(input, statistical_model_state)
+                         statistical_model_state: StatisticalModelState[ModelState]) -> StatisticalModelOutput[ModelState]:
+        ders = vmap(self._derivative, in_axes=(0, self.vmap_input_axis(0)),
+                     out_axes=self.vmap_output_axis(0))(input, statistical_model_state)
         return ders
