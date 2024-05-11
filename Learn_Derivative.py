@@ -109,13 +109,13 @@ if __name__ == '__main__':
     for i in range(min(3, num_traj)):
         for j in range(3):
             axes[j][i].plot(data.inputs[i,:], data.outputs[i,:,j], label=r'x')
-            axes[j][i].plot(data.inputs[i,:], pred_x.mean[i,:,j], label=r'Modelled x')
-            axes[j][i].plot(data.inputs[i,:], ders.mean[i,:,j], label=r'\dot{x}')
+            axes[j][i].plot(data.inputs[i,:], pred_x.mean[i,:,j], label=r'$x_{SMOOTHER}$')
+            axes[j][i].plot(data.inputs[i,:], ders.mean[i,:,j], label=r'$\dot{x}_{SMOOTHER}$')
             axes[j][i].fill_between(data.inputs[i,:].reshape(-1),
                                     (ders.mean[i,:,j] - ders.statistical_model_state.beta[i,j] * ders.epistemic_std[i,:,j]).reshape(-1),
                                     (ders.mean[i,:,j] + ders.statistical_model_state.beta[i,j] * ders.epistemic_std[i,:,j]).reshape(-1),
                                     label=r'$2\sigma$', alpha=0.3, color='blue')
-            axes[j][i].plot(data.inputs[i,:], f_dot(data.inputs[i,:])[:,j], label=r'\dot{x}_{TRUE}')
+            axes[j][i].plot(data.inputs[i,:], f_dot(data.inputs[i,:])[:,j], label=r'$\dot{x}_{TRUE}$')
             axes[j][i].set_title(f"Trajectory {i} - x{j}")
             axes[j][i].grid(True, which='both')
     plt.legend()
@@ -151,13 +151,13 @@ if __name__ == '__main__':
     interval = 64*1
     fig, axes = plt.subplots(3, 1, figsize=(16, 9))
     for i in range(min(3, num_traj)):
-            axes[i].plot(time[:interval].reshape(-1), dyn_preds.mean[:interval,i], label=r'Modelled x_dot')
+            axes[i].plot(time[:interval].reshape(-1), dyn_preds.mean[:interval,i], label=r'$\dot{x}_{DYN. MODEL}$')
             axes[i].fill_between(time[:interval].reshape(-1),
                                     (dyn_preds.mean[:interval,i] - dyn_preds.statistical_model_state.beta[i] * dyn_preds.epistemic_std[:interval,i]).reshape(-1),
                                     (dyn_preds.mean[:interval,i] + dyn_preds.statistical_model_state.beta[i] * dyn_preds.epistemic_std[:interval,i]).reshape(-1),
                                     label=r'$2\sigma$', alpha=0.3, color='blue')
-            axes[i].plot(time[:interval].reshape(-1), dyn_data.outputs[:interval,i], label=r'SmootherNet x_dot')
-            axes[i].plot(time[:interval].reshape(-1), f_dot(time)[:interval,i], label=r'x_dot_TRUE')
+            axes[i].plot(time[:interval].reshape(-1), dyn_data.outputs[:interval,i], label=r'$\dot{x}_{SMOOTHER}$')
+            axes[i].plot(time[:interval].reshape(-1), f_dot(time)[:interval,i], label=r'$\dot{x}_{TRUE}$')
             axes[i].set_title(f"x{i}")
             axes[i].grid(True, which='both')
     plt.legend()
