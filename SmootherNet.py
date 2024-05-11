@@ -47,6 +47,13 @@ class SmootherNet(BNNStatisticalModel):
         #data.outputs = jnp.concatenate([data.outputs, derivatives], axis=1)
         return derivatives
     
+    def smoother_predict(self,
+                      input: chex.Array,
+                      statistical_model_state: StatisticalModelState[BNNState]) -> StatisticalModelOutput[BNNState]:
+        v_apply = vmap(self.predict_batch, in_axes=(0, 0), out_axes=0)
+        preds = v_apply(input, statistical_model_state)
+        return preds
+    
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
