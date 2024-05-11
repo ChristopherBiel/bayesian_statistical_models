@@ -9,7 +9,7 @@ from bsm.bayesian_regression.bayesian_neural_networks.bnn import BNNState, Bayes
 from bsm.bayesian_regression.bayesian_neural_networks.deterministic_ensembles import DeterministicEnsemble
 from bsm.bayesian_regression.bayesian_neural_networks.probabilistic_ensembles import ProbabilisticEnsemble
 from bsm.statistical_model.bnn_statistical_model import BNNStatisticalModel
-from bsm.utils.type_aliases import ModelState, StatisticalModelOutput
+from bsm.utils.type_aliases import ModelState, StatisticalModelOutput, StatisticalModelState
 from bsm.utils.normalization import Data
 
 class SmootherNet(BNNStatisticalModel):
@@ -24,20 +24,26 @@ class SmootherNet(BNNStatisticalModel):
                        *args, **kwargs)
 
     def _learnOneTrajectory(self, key, data: Data) -> StatisticalModelOutput[BNNState]:
-        print(f"Input Data shape of one trajectory: {data.inputs.shape}.")
-        print(f"Output Data shape of one trajectory: {data.outputs.shape}.")
         init_model_state = self.init(key)
-        statistical_model_state = self.update(stats_model_state=init_model_state, data=data)
-        StatisicalModelOutput = self.derivative_batch(data.inputs, statistical_model_state=statistical_model_state)
-        return StatisicalModelOutput
+        model_state = self.update(stats_model_state=init_model_state, data=data)
+        return model_state
     
-    def calcDerivative(self, key, data: Data):
-        # Split the different trajectories in the data into separate datasets
-        print(f"CalcDer - Input Data shape: {data.inputs.shape}.")
-        print(f"CalcDer - Output Data shape: {data.outputs.shape}.")
-        learn = vmap(self._learnOneTrajectory, in_axes=(0, 0), out_axes=0)
+    def _calcOneDerivative(self, model_states: StatisticalModelState[BNNState],
+                           data: Data) -> StatisticalModelOutput[BNNState]:
+        ModelOutput = self.derivative_batch(data.inputs, statistical_model_state=model_states)
+        return ModelOutput
+    
+    def learnSmoothers(self, key, data: Data) -> StatisticalModelState[BNNState]:
+        learn = vmap(self._learnOneTrajectory, in_axes=(0,0), out_axes=0)
         keys = jr.split(key, data.inputs.shape[0])
-        derivatives = learn(keys, data)
+        model_states = learn(keys, data)
+        return model_states
+    
+    def calcDerivative(self, model_states: StatisticalModelState[BNNState],
+                       data: Data) -> StatisticalModelOutput[BNNState]:
+        # Split the different trajectories in the data into separate datasets
+        v_apply = vmap(self._calcOneDerivative, in_axes=(0, 0), out_axes=0)
+        derivatives = v_apply(model_states, data)
         #data.outputs = jnp.concatenate([data.outputs, derivatives], axis=1)
         return derivatives
     

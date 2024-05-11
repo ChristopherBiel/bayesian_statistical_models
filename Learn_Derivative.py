@@ -86,14 +86,17 @@ if __name__ == '__main__':
                         output_stds=data_std,
                         logging_wandb=False,
                         beta=jnp.array([1.0, 1.0, 1.0]),
-                        num_particles=8,
-                        features=[128, 128, 64],
+                        num_particles=10,
+                        features=[32, 32, 16],
                         bnn_type=DeterministicEnsemble,
                         train_share=0.6,
                         num_training_steps=1000,
                         weight_decay=1e-4,
                         )
 
+    model_states = model.learnSmoothers(key, data)
+    ders = model.calcDerivative(model_states, data)
+    exit()
     ders = model.calcDerivative(key, data)
 
     print(f"Derivative mean shape: {ders.mean.shape}")
@@ -105,16 +108,19 @@ if __name__ == '__main__':
     fig, axes = plt.subplots(3, min(3, num_traj), figsize=(16, 9))
     for i in range(min(3, num_traj)):
         for j in range(3):
-            axes[j][i].plot(data.inputs[i,:], data.outputs[i,:,j], label="x")
-            axes[j][i].plot(data.inputs[i,:], ders.mean[i,:,j], label="\dot{x}")
+            axes[j][i].plot(data.inputs[i,:], data.outputs[i,:,j], label=r'x')
+            axes[j][i].plot(data.inputs[i,:], ders.mean[i,:,j], label=r'\dot{x}')
             axes[j][i].fill_between(data.inputs[i,:].reshape(-1),
                                     (ders.mean[i,:,j] - ders.statistical_model_state.beta[i,j] * ders.epistemic_std[i,:,j]).reshape(-1),
                                     (ders.mean[i,:,j] + ders.statistical_model_state.beta[i,j] * ders.epistemic_std[i,:,j]).reshape(-1),
                                     label=r'$2\sigma$', alpha=0.3, color='blue')
-            axes[j][i].plot(data.inputs[i,:], f_dot(data.inputs[i,:])[:,j], label="\dot{x}_{TRUE}")
+            axes[j][i].plot(data.inputs[i,:], f_dot(data.inputs[i,:])[:,j], label=r'\dot{x}_{TRUE}')
             axes[j][i].set_title(f"Trajectory {i} - x{j}")
             axes[j][i].grid(True, which='both')
     plt.legend()
     plt.tight_layout()
     plt.show()
     plt.savefig('traj_bnn.pdf')
+
+    # Now use the Data to train the 
+    #Data(inputs=)
