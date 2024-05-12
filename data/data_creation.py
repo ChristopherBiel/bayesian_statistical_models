@@ -79,10 +79,18 @@ def sample_random_pendulum_data(num_points: int,
         u = u.at[:, i, :].set(actions)
         x_dot = x_dot.at[:, i, :].set(system_state.x_next[:, 2:])
 
+    # Transform the derivative (which is theta_dot) to the state space (use chain rule)
+    x_dot = jnp.concatenate([-1 * x[:,:,1].reshape(num_trajectories, -1, 1) * x_dot,
+                             x[:,:,0].reshape(num_trajectories, -1, 1) * x_dot], axis=2)
+
+    if noise_level is not None:
+        x = x + noise_level * jr.normal(key=key, shape=x.shape)
+
     return t, x, u, x_dot
 
 def sample_pendulum_with_input(control_input: chex.Array,
                                initial_state: chex.Array = jnp.array([-1.0, 0.0, 0.0]),
+                               noise_level: chex.Array | float | None = None,
                                ) -> (chex.Array, chex.Array, chex.Array):
     chex.assert_shape(control_input, (None, 1))
     chex.assert_shape(initial_state, (3,))
@@ -98,6 +106,14 @@ def sample_pendulum_with_input(control_input: chex.Array,
         system_state = system.step(system_state.x_next, control_input[i], system_state.system_params)
         x = x.at[i, :].set(system_state.x_next[:2])
         x_dot = x_dot.at[i, :].set(system_state.x_next[2])
+
+    # Transform the derivative (which is theta_dot) to the state space (use chain rule)
+    x_dot = jnp.concatenate([-1 * x[:,:,1].reshape(num_trajectories, -1, 1) * x_dot,
+                             x[:,:,0].reshape(num_trajectories, -1, 1) * x_dot], axis=2)
+    
+    if noise_level is not None:
+        x = x + noise_level * jr.normal(key=jr.PRNGKey(0), shape=x.shape)
+    
     return t, x, x_dot
 
 if __name__ == '__main__':
