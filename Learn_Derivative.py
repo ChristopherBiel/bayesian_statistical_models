@@ -1,68 +1,17 @@
 import jax.numpy as jnp
 import jax.random as jr
-from jax import vmap
+import matplotlib.pyplot as plt
+
 from bsm.utils.normalization import Data
 from SmootherNet import SmootherNet
 from bsm.bayesian_regression.bayesian_neural_networks.deterministic_ensembles import DeterministicEnsemble
 from bsm.statistical_model.bnn_statistical_model import BNNStatisticalModel
-
-def createTrajectory(num_points, noise_level, d_l, d_u, key):
-    t = jnp.linspace(d_l, d_u, num_points, dtype=jnp.float32).reshape(-1, 1)
-    x = f(t)
-    x_dot_true = f_dot(t)
-    x = x + noise_level * jr.normal(key=key, shape=x.shape)
-    return t, x, x_dot_true
-
-def createData(num_trajectories, noise_level, key, d_l,
-               min_samples=48, max_samples=64):
-    # Create trajectories of varying length with varying number of points
-    keys = jr.split(key, num_trajectories)
-    num_points = jr.randint(keys[0], shape=(num_trajectories,), minval=min_samples, maxval=max_samples+1)
-    print(f"Number of points: {num_points}")
-    t, x, x_dot = createTrajectory(max_samples, noise_level, d_l, d_l+(num_points[0]-1)/10, keys[0])
-    for i in range(num_trajectories-1):
-        t_traj, x_traj, x_dot_traj = createTrajectory(max_samples, noise_level, d_l, d_l+(num_points[i+1]-1)/10, keys[i+1])
-        t = jnp.concatenate([t, t_traj], axis=0)
-        x = jnp.concatenate([x, x_traj], axis=0)
-        x_dot = jnp.concatenate([x_dot, x_dot_traj], axis=0)
-    return Data(inputs=t, outputs=x), Data(inputs=jnp.concatenate([t, x], axis=1), outputs=x_dot)
-
-def splitDataset(data: Data) -> (list[Data], int):
-        """Splits the full Dataset into the individual trajectories,
-        based on the timestamps (every time there is a jump backwards in the timestamp the data is cut)
-        The output is still only one dataset, but now with an additional dimension, which is the number of trajectories."""
-        t = data.inputs
-        assert t.shape[1] == 1
-        delta_t = jnp.diff(t, axis=0)
-        indices = jnp.where(delta_t < 0.0)[0] + 1
-        ts = jnp.split(t, indices)
-        xs = jnp.split(data.outputs, indices)
-        print(f"Splitting data into {len(ts)} trajectories.")
-        # To be able to stack, all the arrays need to have the same shape
-        # Therefore, we need to pad the arrays with zeros
-        max_length = max([len(traj) for traj in ts])
-        for i in range(len(ts)):
-            ts[i] = jnp.pad(ts[i], ((0, max_length - len(ts[i])), (0, 0)), mode='wrap')
-            xs[i] = jnp.pad(xs[i], ((0, max_length - len(xs[i])), (0, 0)), mode='wrap')
-        inputs = jnp.stack(ts, axis=0)
-        outputs = jnp.stack(xs, axis=0)
-        return Data(inputs=inputs, outputs=outputs), len(ts)
-
-def f(t):
-    x = jnp.concatenate([jnp.sin(t) * jnp.cos(0.2*t),
-                         0.04*jnp.power(t, 2) + 0.25*t + 1.4,
-                         0.3*jnp.sin(t)], axis=1)
-    return x 
-
-def f_dot(t):
-    x_dot = jnp.concatenate([jnp.sin(t) * (-0.2) * jnp.sin(0.2*t) + jnp.cos(t) * jnp.cos(0.2*t),
-                             0.08*t + 0.25,
-                             0.3*jnp.cos(t)], axis=1)
-    return x_dot
+from data.data_creation import create_example_data, example_function_derivative
+from data.data_creation import sample_pendulum_with_input, sample_random_pendulum_data
+from data.data_handling import split_dataset
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-
+    
     num_traj = 12
     noise_level = 0.1
     d_l, d_u = 0, 10
@@ -70,10 +19,10 @@ if __name__ == '__main__':
     length = 64
     traj_keys= jr.split(key, num_traj)
 
-    data, derivative_data = createData(num_traj, noise_level, key, d_l,
+    data, derivative_data = create_example_data(num_traj, noise_level, key, d_l,
                                        min_samples=length, max_samples=length)
     # Split the different trajectories in the data into separate datasets
-    data, num_datasets = splitDataset(data)
+    data, num_datasets = split_dataset(data)
 
     print(f"Data Input shape: {data.inputs.shape}")
     print(f"Data Output shape: {data.outputs.shape}")
@@ -115,7 +64,7 @@ if __name__ == '__main__':
                                     (ders.mean[i,:,j] - ders.statistical_model_state.beta[i,j] * ders.epistemic_std[i,:,j]).reshape(-1),
                                     (ders.mean[i,:,j] + ders.statistical_model_state.beta[i,j] * ders.epistemic_std[i,:,j]).reshape(-1),
                                     label=r'$2\sigma$', alpha=0.3, color='blue')
-            axes[j][i].plot(data.inputs[i,:], f_dot(data.inputs[i,:])[:,j], label=r'$\dot{x}_{TRUE}$')
+            axes[j][i].plot(data.inputs[i,:], example_function_derivative(data.inputs[i,:])[:,j], label=r'$\dot{x}_{TRUE}$')
             axes[j][i].set_title(f"Trajectory {i} - x{j}")
             axes[j][i].grid(True, which='both')
     plt.legend()
@@ -157,7 +106,7 @@ if __name__ == '__main__':
                                     (dyn_preds.mean[:interval,i] + dyn_preds.statistical_model_state.beta[i] * dyn_preds.epistemic_std[:interval,i]).reshape(-1),
                                     label=r'$2\sigma$', alpha=0.3, color='blue')
             axes[i].plot(time[:interval].reshape(-1), dyn_data.outputs[:interval,i], label=r'$\dot{x}_{SMOOTHER}$')
-            axes[i].plot(time[:interval].reshape(-1), f_dot(time)[:interval,i], label=r'$\dot{x}_{TRUE}$')
+            axes[i].plot(time[:interval].reshape(-1), example_function_derivative(time)[:interval,i], label=r'$\dot{x}_{TRUE}$')
             axes[i].set_title(f"x{i}")
             axes[i].grid(True, which='both')
     plt.legend()

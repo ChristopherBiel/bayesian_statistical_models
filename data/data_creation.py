@@ -4,6 +4,41 @@ import jax.random as jr
 import chex
 
 from systems.pendulum_system import PendulumSystem
+from bsm.utils.normalization import Data
+
+def example_function(t):
+    x = jnp.concatenate([jnp.sin(t) * jnp.cos(0.2*t),
+                         0.04*jnp.power(t, 2) + 0.25*t + 1.4,
+                         0.3*jnp.sin(t)], axis=1)
+    return x 
+
+def example_function_derivative(t):
+    x_dot = jnp.concatenate([jnp.sin(t) * (-0.2) * jnp.sin(0.2*t) + jnp.cos(t) * jnp.cos(0.2*t),
+                             0.08*t + 0.25,
+                             0.3*jnp.cos(t)], axis=1)
+    return x_dot
+
+def sample_example_trajectory(num_points, noise_level, d_l, d_u, key):
+    t = jnp.linspace(d_l, d_u, num_points, dtype=jnp.float32).reshape(-1, 1)
+    x = example_function(t)
+    x_dot_true = example_function_derivative(t)
+    x = x + noise_level * jr.normal(key=key, shape=x.shape)
+    return t, x, x_dot_true
+
+def create_example_data(num_trajectories, noise_level, key, d_l,
+               min_samples=48, max_samples=64):
+    # Create trajectories of varying length with varying number of points
+    keys = jr.split(key, num_trajectories)
+    num_points = jr.randint(keys[0], shape=(num_trajectories,), minval=min_samples, maxval=max_samples+1)
+    print(f"Number of points: {num_points}")
+    t, x, x_dot = sample_example_trajectory(max_samples, noise_level, d_l, d_l+(num_points[0]-1)/10, keys[0])
+    for i in range(num_trajectories-1):
+        t_traj, x_traj, x_dot_traj = sample_example_trajectory(max_samples, noise_level, d_l, d_l+(num_points[i+1]-1)/10, keys[i+1])
+        t = jnp.concatenate([t, t_traj], axis=0)
+        x = jnp.concatenate([x, x_traj], axis=0)
+        x_dot = jnp.concatenate([x_dot, x_dot_traj], axis=0)
+    return Data(inputs=t, outputs=x), Data(inputs=jnp.concatenate([t, x], axis=1), outputs=x_dot)
+
 
 def sample_random_pendulum_data(num_points: int,
                          noise_level: chex.Array | float | None,
@@ -64,7 +99,6 @@ def sample_pendulum_with_input(control_input: chex.Array,
         x = x.at[i, :].set(system_state.x_next[:2])
         x_dot = x_dot.at[i, :].set(system_state.x_next[2])
     return t, x, x_dot
-
 
 if __name__ == '__main__':
     num_points = 100
