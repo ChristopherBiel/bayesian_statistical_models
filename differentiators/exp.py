@@ -15,6 +15,7 @@ from data_handling.data_handling import split_dataset
 from data_handling.data_output import plot_derivative_data
 
 def experiment(project_name: str = 'LearnDynamicsModel',
+               seed: int=0,
                num_traj: int = 12,
                sample_points: int = 64,
                noise_level: float = None,
@@ -38,7 +39,8 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     assert dyn_type in ['DeterministicEnsemble', 'ProbabilisticEnsemble', 'DeterministicFSVGDEnsemble',
                         'ProbabilisticFSVGDEnsemble'], f"Unknown dyanmics BNN type: {dyn_type}"
     
-    config = dict(num_traj=num_traj,
+    config = dict(seed=seed,
+                  num_traj=num_traj,
                   sample_points=sample_points,
                   noise_level=noise_level,
                   smoother_features=smoother_features,
@@ -60,7 +62,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
 
 
     # Create the data
-    key = jr.PRNGKey(0)
+    key = jr.PRNGKey(seed=seed)
     t, x, u, x_dot = sample_random_pendulum_data(num_points=sample_points,
                                                  noise_level=noise_level,
                                                  key=key,
@@ -245,6 +247,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
 
 def main(args):
     experiment(project_name=args.project_name,
+               seed=args.seed,
                num_traj=args.num_traj,
                sample_points=args.sample_points,
                noise_level=args.noise_level,
@@ -263,6 +266,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--project_name', type=str, default='LearnDynamicsModel')
+    parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num_traj', type=int, default=12)
     parser.add_argument('--noise_level', type=float, default=None)
     parser.add_argument('--sample_points', type=int, default=64)
