@@ -121,7 +121,6 @@ class BayesianNeuralNet(BayesianRegressionModel[BNNState]):
         chex.assert_shape(input, (self.input_dim,))
         v_apply = jax.vmap(self._single_derivative, in_axes=(0, None, None), out_axes=0)
         derivative = v_apply(bnn_state.vmapped_params, input, bnn_state.data_stats)
-        print(f"Derivative shape: {derivative.shape}")
         assert derivative.shape == (self.num_particles, self.output_dim)
         return ParticleDistribution(particle_means=derivative)
 

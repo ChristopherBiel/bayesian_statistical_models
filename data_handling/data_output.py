@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import jax.numpy as jnp
 import chex
 from bsm.utils.normalization import Data
-from data.data_handling import split_dataset
+from data_handling.data_handling import split_dataset
 
 def plot_derivative_data(t: chex.Array,
                          x: chex.Array,
@@ -23,22 +23,21 @@ def plot_derivative_data(t: chex.Array,
     data, num_trajectories = split_dataset(data)
 
     t = data.inputs
-    x = data.ouputs[:,:,:state_dim]
-    x_est = data.ouputs[:,:,state_dim:state_dim*2]
+    x = data.outputs[:,:,:state_dim]
+    x_est = data.outputs[:,:,state_dim:state_dim*2]
     x_dot_true = data.outputs[:,:,state_dim*2:state_dim*3]
     x_dot_est = data.outputs[:,:,state_dim*3:state_dim*4]
     x_dot_est_std = data.outputs[:,:,state_dim*4:]
 
     fig, axes = plt.subplots(state_dim, num_trajectories_to_plot, figsize=(16,9))
     for k01 in range(state_dim):
-        if num_trajectories_to_plot == 1:
+        if num_trajectories_to_plot > 1:
             for k02 in range(num_trajectories_to_plot):
                 axes[k01][k02].plot(t[k02,:,0].reshape(-1), x_dot_est[k02,:,k01], label=r'$\dot{x}_{%s}$'%(source))
                 axes[k01][k02].fill_between(t[0,:,0].reshape(-1),
                                             (x_dot_est[k02,:,k01] - beta[k01] * x_dot_est_std[k02,:,k01]).reshape(-1),
                                             (x_dot_est[k02,:,k01] + beta[k01] * x_dot_est_std[k02,:,k01]).reshape(-1),
                                             label=r'$2\sigma$', alpha=0.3, color='blue')
-                axes[k01][k02].plot(t[0,:,0].reshape(-1), x_est[k02,:,k01], label=r'$\dot{x}_{%s}$'%(source))
                 axes[k01][k02].plot(t[0,:,0].reshape(-1), x_dot_true[k02,:,k01], label=r'$\dot{x}_{TRUE}$')
                 axes[k01][k02].set_ylabel(r'state $x_{%s}$' %(str(k01)))
                 axes[k01][k02].set_xlabel(r'Time [s]')
@@ -50,10 +49,15 @@ def plot_derivative_data(t: chex.Array,
                                     (x_dot_est[0,:,k01] - beta[k01] * x_dot_est_std[0,:,k01]).reshape(-1),
                                     (x_dot_est[0,:,k01] + beta[k01] * x_dot_est_std[0,:,k01]).reshape(-1),
                                     label=r'$2\sigma$', alpha=0.3, color='blue')
-            axes[k01].plot(t[0,:,0].reshape(-1), x_est[0,:,k01], label=r'$\dot{x}_{%s}$'%(source))
             axes[k01].plot(t[0,:,0].reshape(-1), x_dot_true[0,:,k01], label=r'$\dot{x}_{TRUE}$')
             axes[k01].set_ylabel(r'state $x_{%s}$' %(str(k01)))
             axes[k01].set_xlabel(r'Time [s]')
             axes[k01].grid(True, which='both')
     plt.legend()
     fig.tight_layout()
+    return fig
+
+def calc_derivative_RMSE(x_dot_true: chex.Array,
+                         x_dot_est: chex.Array,
+                         x_dot_est_std: chex.Array) -> float:
+    pass

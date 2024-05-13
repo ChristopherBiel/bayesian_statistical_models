@@ -1,1 +1,2 @@
-![Continuous integration](https://github.com/lenarttreven/bayesian_statistical_models/actions/workflows/continuous_integration.yml/badge.svg)
+Library to learn the derivative of a system state using variety of approaches.
+The [bsm implementation of LAS Group](https://github.com/lasgroup/bayesian_statistical_models) is used.

@@ -14,7 +14,6 @@ def split_dataset(data: Data) -> (list[Data], int):
         indices = jnp.where(delta_t < 0.0)[0] + 1
         ts = jnp.split(t, indices)
         xs = jnp.split(data.outputs, indices)
-        print(f"Splitting data into {len(ts)} trajectories.")
 
         # To be able to stack, all the arrays need to have the same shape
         # For trajectories with different lengths (which may happen) this is not the case

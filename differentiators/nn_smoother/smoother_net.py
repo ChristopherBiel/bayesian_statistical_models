@@ -44,7 +44,6 @@ class SmootherNet(BNNStatisticalModel):
         # Split the different trajectories in the data into separate datasets
         v_apply = vmap(self._calcOneDerivative, in_axes=(0, 0), out_axes=0)
         derivatives = v_apply(model_states, data)
-        #data.outputs = jnp.concatenate([data.outputs, derivatives], axis=1)
         return derivatives
     
     def smoother_predict(self,

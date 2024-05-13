@@ -9,10 +9,10 @@ from bsm.bayesian_regression.bayesian_neural_networks.deterministic_ensembles im
 from bsm.bayesian_regression.bayesian_neural_networks.probabilistic_ensembles import ProbabilisticEnsemble
 from bsm.bayesian_regression.bayesian_neural_networks.fsvgd_ensemble import DeterministicFSVGDEnsemble, ProbabilisticFSVGDEnsemble
 from bsm.statistical_model.bnn_statistical_model import BNNStatisticalModel
-from data.data_creation import create_example_data, example_function_derivative
-from data.data_creation import sample_pendulum_with_input, sample_random_pendulum_data
-from data.data_handling import split_dataset
-from data.data_output import plot_derivative_data
+from data_handling.data_creation import create_example_data, example_function_derivative
+from data_handling.data_creation import sample_pendulum_with_input, sample_random_pendulum_data
+from data_handling.data_handling import split_dataset
+from data_handling.data_output import plot_derivative_data
 
 def experiment(project_name: str = 'LearnDynamicsModel',
                num_traj: int = 12,
@@ -70,7 +70,10 @@ def experiment(project_name: str = 'LearnDynamicsModel',
 
     input_dim = smoother_data.inputs.shape[-1]
     output_dim = smoother_data.outputs.shape[-1]
-    data_std = noise_level * jnp.ones(shape=(output_dim,))
+    if noise_level is None:
+        data_std = jnp.ones(shape=(output_dim,))
+    else:
+        data_std = noise_level * jnp.ones(shape=(output_dim,))
 
     if logging_mode_wandb > 1:
         logging_smoother_wandb = True
@@ -86,7 +89,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                             output_dim=output_dim,
                             output_stds=data_std,
                             logging_wandb=logging_smoother_wandb,
-                            beta=jnp.ones(shape=(output_dim,)),
+                            beta=jnp.ones(shape=(output_dim,))*3,
                             num_particles=dyn_particles,
                             features=smoother_features,
                             bnn_type=DeterministicEnsemble,
@@ -99,7 +102,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                             output_dim=output_dim,
                             output_stds=data_std,
                             logging_wandb=logging_smoother_wandb,
-                            beta=jnp.ones(shape=(output_dim,)),
+                            beta=jnp.ones(shape=(output_dim,))*3,
                             num_particles=dyn_particles,
                             features=smoother_features,
                             bnn_type=ProbabilisticEnsemble,
@@ -112,7 +115,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                             output_dim=output_dim,
                             output_stds=data_std,
                             logging_wandb=logging_smoother_wandb,
-                            beta=jnp.ones(shape=(output_dim,)),
+                            beta=jnp.ones(shape=(output_dim,))*3,
                             num_particles=dyn_particles,
                             features=smoother_features,
                             bnn_type=DeterministicFSVGDEnsemble,
@@ -125,7 +128,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                             output_dim=output_dim,
                             output_stds=data_std,
                             logging_wandb=logging_smoother_wandb,
-                            beta=jnp.ones(shape=(output_dim,)),
+                            beta=jnp.ones(shape=(output_dim,))*3,
                             num_particles=dyn_particles,
                             features=smoother_features,
                             bnn_type=ProbabilisticFSVGDEnsemble,
@@ -140,6 +143,9 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     model_states = model.learnSmoothers(key, smoother_data)
     pred_x = model.smoother_predict(smoother_data.inputs, model_states)
     ders = model.calcDerivative(model_states, smoother_data)
+
+    print(f"Prediction shape: {pred_x.mean.shape}")
+    print(f"Derivatives shape: {ders.mean.shape}")
 
     # Plot the results for the first three trajectories
     if logging_mode_wandb > 0:
@@ -170,7 +176,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         output_dim=output_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
-                                        beta=jnp.ones(shape=(output_dim,)),
+                                        beta=jnp.ones(shape=(output_dim,))*2,
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=DeterministicEnsemble,
@@ -183,7 +189,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         output_dim=output_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
-                                        beta=jnp.ones(shape=(output_dim,)),
+                                        beta=jnp.ones(shape=(output_dim,))*2,
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=ProbabilisticEnsemble,
@@ -196,7 +202,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         output_dim=output_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
-                                        beta=jnp.ones(shape=(output_dim,)),
+                                        beta=jnp.ones(shape=(output_dim,))*2,
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=DeterministicFSVGDEnsemble,
@@ -209,7 +215,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         output_dim=output_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
-                                        beta=jnp.ones(shape=(output_dim,)),
+                                        beta=jnp.ones(shape=(output_dim,))*2,
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=ProbabilisticFSVGDEnsemble,
@@ -224,10 +230,10 @@ def experiment(project_name: str = 'LearnDynamicsModel',
 
     # Plot the results for the first trajectory only
     if logging_mode_wandb > 0:
-        fig = plot_derivative_data(t=t,
+        fig = plot_derivative_data(t=t.reshape(-1, 1),
                                    x=smoother_data.outputs.reshape(-1, output_dim),
-                                   x_est=pred_x.mean.reshape(-1,1),
-                                   x_dot_true=x_dot.reshape(-1,1),
+                                   x_est=pred_x.mean.reshape(-1, output_dim),
+                                   x_dot_true=x_dot.reshape(-1, output_dim),
                                    x_dot_est = dyn_preds.mean,
                                    x_dot_est_std=dyn_preds.epistemic_std,
                                    beta=dyn_preds.statistical_model_state.beta,
@@ -240,7 +246,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
 def main(args):
     experiment(project_name=args.project_name,
                num_traj=args.num_traj,
-               sample_points=args.sample_point,
+               sample_points=args.sample_points,
                noise_level=args.noise_level,
                smoother_features=args.smoother_features,
                dyn_features=args.dyn_features,
@@ -260,16 +266,16 @@ if __name__ == '__main__':
     parser.add_argument('--num_traj', type=int, default=12)
     parser.add_argument('--noise_level', type=float, default=None)
     parser.add_argument('--sample_points', type=int, default=64)
-    parser.add_argument('--smoother_features', type=list, default=[32, 32, 16])
-    parser.add_argument('--dyn_features', type=list, default=[128, 128, 64])
+    parser.add_argument('--smoother_features', type=list, default=[128, 64])
+    parser.add_argument('--dyn_features', type=list, default=[128, 64])
     parser.add_argument('--smoother_particles', type=int, default=10)
     parser.add_argument('--dyn_particles', type=int, default=10)
     parser.add_argument('--smoother_training_steps', type=int, default=1000)
     parser.add_argument('--dyn_training_steps', type=int, default=1000)
-    parser.add_argument('--smoother_weight_decay', type=float, default=1e-4)
-    parser.add_argument('--dyn_weight_decay', type=float, default=1e-4)
+    parser.add_argument('--smoother_weight_decay', type=float, default=3e-4)
+    parser.add_argument('--dyn_weight_decay', type=float, default=3e-4)
     parser.add_argument('--smoother_type', type=str, default='DeterministicEnsemble')
     parser.add_argument('--dyn_type', type=str, default='DeterministicEnsemble')
-    parser.add_argument('--logging_mode_wandb', type=int, default=0)
+    parser.add_argument('--logging_mode_wandb', type=int, default=1)
     args = parser.parse_args()
     main(args)
