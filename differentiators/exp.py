@@ -12,6 +12,7 @@ from bsm.statistical_model.bnn_statistical_model import BNNStatisticalModel
 from data.data_creation import create_example_data, example_function_derivative
 from data.data_creation import sample_pendulum_with_input, sample_random_pendulum_data
 from data.data_handling import split_dataset
+from data.data_output import plot_derivative_data
 
 def experiment(project_name: str = 'LearnDynamicsModel',
                num_traj: int = 12,
@@ -29,6 +30,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                dyn_type: str = 'DeterministicEnsemble',
                logging_mode_wandb: int = 0,):
     
+    # Input checks
     assert num_traj > 0
     assert sample_points > 0
     assert smoother_type in ['DeterministicEnsemble', 'ProbabilisticEnsemble', 'DeterministicFSVGDEnsemble',
@@ -159,6 +161,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
         wandb.log({'smoother': wandb.Image(plt)})
 
     # -------------------- Dynamics Model --------------------
+    # The split data is concatinated again
     inputs = pred_x.mean.reshape(-1, output_dim)
     outputs = ders.mean.reshape(-1, output_dim)
     dyn_data = Data(inputs=inputs, outputs=outputs)
@@ -221,28 +224,39 @@ def experiment(project_name: str = 'LearnDynamicsModel',
 
     # Plot the results for the first trajectory only
     if logging_mode_wandb > 0:
-        plot_interval = sample_points*1
-        fig, axes = plt.subplots(3, 1, figsize=(16, 9))
-        for i in range(min(3, num_traj)):
-                axes[i].plot(t[:plot_interval].reshape(-1), dyn_preds.mean[:plot_interval,i], label=r'$\dot{x}_{DYN. MODEL}$')
-                axes[i].fill_between(t[:plot_interval].reshape(-1),
-                                        (dyn_preds.mean[:plot_interval,i] - dyn_preds.statistical_model_state.beta[i] * dyn_preds.epistemic_std[:plot_interval,i]).reshape(-1),
-                                        (dyn_preds.mean[:plot_interval,i] + dyn_preds.statistical_model_state.beta[i] * dyn_preds.epistemic_std[:plot_interval,i]).reshape(-1),
-                                        label=r'$2\sigma$', alpha=0.3, color='blue')
-                axes[i].plot(t[:plot_interval].reshape(-1), dyn_data.outputs[:plot_interval,i], label=r'$\dot{x}_{SMOOTHER}$')
-                axes[i].plot(t[:plot_interval].reshape(-1), x_dot[:plot_interval,i], label=r'$\dot{x}_{TRUE}$')
-                axes[i].set_title(f"x{i}")
-                axes[i].grid(True, which='both')
-        plt.legend()
-        plt.tight_layout()
-        wandb.log({'dynamics': wandb.Image(plt)})
+        fig = plot_derivative_data(t=t,
+                                   x=smoother_data.outputs.reshape(-1, output_dim),
+                                   x_est=pred_x.mean.reshape(-1,1),
+                                   x_dot_true=x_dot.reshape(-1,1),
+                                   x_dot_est = dyn_preds.mean,
+                                   x_dot_est_std=dyn_preds.epistemic_std,
+                                   beta=dyn_preds.statistical_model_state.beta,
+                                   source='DYN. MODEL',
+                                   num_trajectories_to_plot=2,
+                                   )
+        wandb.log({'dynamics': wandb.Image(fig)})
 
 
 def main(args):
-    experiment()
+    experiment(project_name=args.project_name,
+               num_traj=args.num_traj,
+               sample_points=args.sample_point,
+               noise_level=args.noise_level,
+               smoother_features=args.smoother_features,
+               dyn_features=args.dyn_features,
+               smoother_particles=args.smoother_particles,
+               dyn_particles=args.dyn_particles,
+               smoother_training_steps=args.smoother_training_steps,
+               dyn_training_steps=args.dyn_training_steps,
+               smoother_weight_decay=args.smoother_weight_decay,
+               dyn_weight_decay=args.dyn_weight_decay,
+               smoother_type=args.smoother_type,
+               dyn_type=args.dyn_type,
+               logging_mode_wandb=args.logging_mode_wandb)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--project_name', type=str, default='LearnDynamicsModel')
     parser.add_argument('--num_traj', type=int, default=12)
     parser.add_argument('--noise_level', type=float, default=None)
     parser.add_argument('--sample_points', type=int, default=64)
