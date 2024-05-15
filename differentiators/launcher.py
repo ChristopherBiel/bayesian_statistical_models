@@ -7,6 +7,8 @@ general_configs = {
     'num_traj': [12],
     'noise_level': [None],
     'sample_points': [64],
+    'smoother_features': [(64, 64)],
+    'dyn_features': [(128, 128)],
     'smoother_particles': [12],
     'dyn_particles': [12],
     'smoother_train_steps': [1000, 4000],
