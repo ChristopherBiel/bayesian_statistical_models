@@ -3,17 +3,17 @@ import differentiators.exp as exp
 
 general_configs = {
     'project_name': ['BNNSmootherAndDynamics_240513'],
-    'seed': [0, 1],
+    'seed': [0],
     'num_traj': [12],
     'sample_points': [64],
     'smoother_particles': [12],
     'dyn_particles': [12],
-    'smoother_train_steps': [1000, 4000],
-    'dyn_train_steps': [4000, 64000],
+    'smoother_training_steps': [1000],
+    'dyn_training_steps': [4000],
     'smoother_weight_decay': [3e-4],
     'dyn_weight_decay': [3e-4],
-    'smoother_type': ['DeterministicEnsemble', 'DeterministicFSVGDEnsemble'],
-    'dyn_type': ['DeterministicEnsemble', 'DeterministicFSVGDEnsemble'],
+    'smoother_type': ['DeterministicEnsemble'],
+    'dyn_type': ['DeterministicEnsemble'],
     'logging_mode_wandb': [2],
 }
 
