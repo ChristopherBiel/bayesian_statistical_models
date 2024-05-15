@@ -5,6 +5,7 @@ import chex
 
 from systems.pendulum_system import PendulumSystem
 from bsm.utils.normalization import Data
+from data_handling.icem_optimizer import powerlaw_psd_gaussian
 
 def example_function(t: chex.Array):
     x = jnp.concatenate([jnp.sin(t) * jnp.cos(0.2*t),
@@ -51,7 +52,8 @@ def sample_random_pendulum_data(num_points: int,
                          noise_level: chex.Array | float | None,
                          key: jr.PRNGKey,
                          num_trajectories: int | None,
-                         initial_states: chex.Array | None) -> (chex.Array, chex.Array, chex.Array, chex.Array):
+                         initial_states: chex.Array | None,
+                         input_exponent: float = 3) -> (chex.Array, chex.Array, chex.Array, chex.Array):
     if num_trajectories is None and initial_states is None:
         num_trajectories = 1
         initial_states = jnp.array([[-1.0, 0.0, 0.0]])
@@ -74,16 +76,16 @@ def sample_random_pendulum_data(num_points: int,
     t = t.T.reshape(num_trajectories, -1, 1)
     assert t.shape == (num_trajectories, num_points, 1)
     x = jnp.zeros((num_trajectories, num_points, 2))
-    u = jnp.zeros((num_trajectories, num_points, 1))
     x_dot = jnp.zeros((num_trajectories, num_points, 1))
-
+    # create inputs:
+    v_apply = jax.vmap(powerlaw_psd_gaussian, in_axes=(None, None, 0), out_axes=0)
+    action_keys = jr.split(key, num_trajectories+1)
+    key = action_keys[-1]
+    u = v_apply(input_exponent, num_points, action_keys[:-1]).reshape(num_trajectories,num_points,1)
+    u = scale_array_to_limits(u, min=-1, max=1)
     for i in range(num_points):
-        action_key, key = jr.split(key, 2)
-        actions = jr.uniform(key=action_key, shape=(num_trajectories, 1),
-                             minval=-1, maxval=1)
-        system_state = jax.vmap(system.step)(system_state.x_next, actions, system_state.system_params)
+        system_state = jax.vmap(system.step)(system_state.x_next, u[:,i,:], system_state.system_params)
         x = x.at[:, i, :].set(system_state.x_next[:, :2])
-        u = u.at[:, i, :].set(actions)
         x_dot = x_dot.at[:, i, :].set(system_state.x_next[:, 2:])
 
     # Transform the derivative (which is theta_dot) to the state space (use chain rule)
@@ -122,6 +124,16 @@ def sample_pendulum_with_input(control_input: chex.Array,
         x = x + noise_level * jr.normal(key=jr.PRNGKey(0), shape=x.shape)
     
     return t, x, x_dot
+
+def scale_array_to_limits(array: chex.Array,
+                          min: float,
+                          max: float,) -> chex.Array:
+    assert min != max, "Min and max values can not be identical"
+    min_val = jnp.min(array)
+    max_val = jnp.max(array)
+    normalized_array = (array - min_val)/(max_val - min_val)
+    scaled_arr = normalized_array * (max - min) + min
+    return scaled_arr
 
 if __name__ == '__main__':
     num_points = 100

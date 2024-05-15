@@ -57,6 +57,43 @@ def plot_derivative_data(t: chex.Array,
     fig.tight_layout()
     return fig
 
+def plot_data(t: chex.Array,
+              x: chex.Array,
+              u: chex.Array = None,
+              x_dot: chex.Array = None,
+              title: str = '') -> plt.figure:
+    num_dim = x.ndim # If ndim = 3, there are different trajectories to plot
+    if num_dim == 3:
+        t = t[0,:,:]
+        x = x[0,:,:]
+        if u is not None:
+            u = u[0,:,:]
+        if x_dot is not None:
+            x_dot = x_dot[0,:,:]
+    state_dim = x.shape[-1]
+    input_dim = u.shape[-1]
+    if state_dim > 1 or input_dim > 1:
+        fig, axes = plt.subplots(3,1,figsize=(16,9))
+        for k01 in range(state_dim):
+            axes[0].plot(t, x[:,k01], label=r'$x_{%s}$'%(str(k01)))
+            axes[2].plot(t, x_dot[:,k01], label=r'$\dot{x}_{%s}$'%(str(k01)))
+        axes[0].set_xlabel('Time')
+        axes[0].set_ylabel('States')
+        plt.legend()
+        axes[0].grid(True, which='both')
+        for k01 in range(input_dim):
+            axes[1].plot(t, u[:,k01], label=r'$u_{%s}$'%(str(k01)))
+        axes[1].set_xlabel('Time')
+        axes[1].set_ylabel('Inputs')
+        plt.legend()
+        axes[1].grid(True, which='both')
+        axes[2].set_xlabel('Time')
+        axes[2].set_ylabel('State Derivatives')
+        plt.legend()
+        axes[2].grid(True, which='both')
+    fig.suptitle(title)
+    return fig
+
 def calc_derivative_RMSE(x_dot_true: chex.Array,
                          x_dot_est: chex.Array,
                          x_dot_est_std: chex.Array) -> float:

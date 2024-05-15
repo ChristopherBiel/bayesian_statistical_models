@@ -12,7 +12,7 @@ from bsm.statistical_model.bnn_statistical_model import BNNStatisticalModel
 from data_handling.data_creation import create_example_data, example_function_derivative
 from data_handling.data_creation import sample_pendulum_with_input, sample_random_pendulum_data
 from data_handling.data_handling import split_dataset
-from data_handling.data_output import plot_derivative_data
+from data_handling.data_output import plot_derivative_data, plot_data
 
 def experiment(project_name: str = 'LearnDynamicsModel',
                seed: int=0,
@@ -54,7 +54,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                   smoother_type=smoother_type,
                   dyn_type=dyn_type,
                   logging_mode_wandb=logging_mode_wandb,)
-
+    
     if logging_mode_wandb > 0:
         import wandb
         wandb.init(project=project_name,
@@ -67,7 +67,11 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                                  noise_level=noise_level,
                                                  key=key,
                                                  num_trajectories=num_traj,
-                                                 initial_states=None)
+                                                 initial_states=None,)
+    if logging_mode_wandb > 0:
+        fig = plot_data(t, x, u, x_dot, title='One trajectory of the sampled training data (pendulum)')
+        wandb.log({'Training Data': wandb.Image(fig)})
+
     smoother_data = Data(inputs=t, outputs=x)
 
     input_dim = smoother_data.inputs.shape[-1]
@@ -269,17 +273,17 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num_traj', type=int, default=12)
     parser.add_argument('--noise_level', type=float, default=None)
-    parser.add_argument('--sample_points', type=int, default=64)
-    parser.add_argument('--smoother_features', type=list, default=[128, 64])
-    parser.add_argument('--dyn_features', type=list, default=[128, 64])
+    parser.add_argument('--sample_points', type=int, default=48)
+    parser.add_argument('--smoother_features', type=list, default=[128, 128])
+    parser.add_argument('--dyn_features', type=list, default=[128, 128])
     parser.add_argument('--smoother_particles', type=int, default=10)
     parser.add_argument('--dyn_particles', type=int, default=10)
     parser.add_argument('--smoother_training_steps', type=int, default=1000)
-    parser.add_argument('--dyn_training_steps', type=int, default=1000)
+    parser.add_argument('--dyn_training_steps', type=int, default=4000)
     parser.add_argument('--smoother_weight_decay', type=float, default=3e-4)
     parser.add_argument('--dyn_weight_decay', type=float, default=3e-4)
-    parser.add_argument('--smoother_type', type=str, default='DeterministicEnsemble')
-    parser.add_argument('--dyn_type', type=str, default='DeterministicEnsemble')
+    parser.add_argument('--smoother_type', type=str, default='ProbabilisticFSVGDEnsemble')
+    parser.add_argument('--dyn_type', type=str, default='ProbabilisticFSVGDEnsemble')
     parser.add_argument('--logging_mode_wandb', type=int, default=1)
     args = parser.parse_args()
     main(args)

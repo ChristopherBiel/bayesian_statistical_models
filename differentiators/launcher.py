@@ -3,20 +3,20 @@ import differentiators.exp as exp
 
 general_configs = {
     'project_name': 'BNNSmootherAndDynamics_240513',
-    'seed': [0,1],
+    'seed': [0, 1],
     'num_traj': [12],
     'noise_level': [None],
     'sample_points': [64],
-    'smoother_features': [(128, 64)],
-    'dyn_features': [(128, 128, 64)],
+    'smoother_features': [(128, 128)],
+    'dyn_features': [(128, 128)],
     'smoother_particles': [12],
     'dyn_particles': [12],
     'smoother_train_steps': [1000, 4000],
-    'dyn_train_steps': [1000, 4000, 16000],
-    'smoother_weight_decay': [1e-4 ,3e-4],
-    'dyn_weight_decay': [1e-4, 3e-4],
-    'smoother_type': ['DeterministicEnsemble', 'ProbabilisticFSVGDEnsemble', 'DeterministicFSVGDEnsemble'],
-    'dyn_type': ['DeterministicEnsemble', 'ProbabilisticFSVGDEnsemble', 'DeterministicFSVGDEnsemble'],
+    'dyn_train_steps': [4000, 64000],
+    'smoother_weight_decay': [3e-4],
+    'dyn_weight_decay': [3e-4],
+    'smoother_type': ['DeterministicEnsemble', 'DeterministicFSVGDEnsemble'],
+    'dyn_type': ['DeterministicEnsemble', 'DeterministicFSVGDEnsemble'],
     'logging_mode_wandb': [1],
 }
 
