@@ -5,7 +5,6 @@ general_configs = {
     'project_name': ['BNNSmootherAndDynamics_240513'],
     'seed': [0, 1],
     'num_traj': [12],
-    'noise_level': [None],
     'sample_points': [64],
     'smoother_particles': [12],
     'dyn_particles': [12],
