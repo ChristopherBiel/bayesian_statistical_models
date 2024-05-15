@@ -17,7 +17,7 @@ general_configs = {
     'dyn_weight_decay': [3e-4],
     'smoother_type': ['DeterministicEnsemble', 'DeterministicFSVGDEnsemble'],
     'dyn_type': ['DeterministicEnsemble', 'DeterministicFSVGDEnsemble'],
-    'logging_mode_wandb': [1],
+    'logging_mode_wandb': [2],
 }
 
 def main():

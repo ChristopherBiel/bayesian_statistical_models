@@ -19,8 +19,8 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                num_traj: int = 12,
                sample_points: int = 64,
                noise_level: float = None,
-               smoother_features: list = [32, 32, 16],
-               dyn_features: list = [128, 128, 64],
+               smoother_features: list = [64, 64],
+               dyn_features: list = [128, 128],
                smoother_particles: int = 10,
                dyn_particles: int = 10,
                smoother_training_steps: int = 1000,
@@ -81,8 +81,11 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     else:
         data_std = noise_level * jnp.ones(shape=(output_dim,))
 
-    if logging_mode_wandb > 1:
+    if logging_mode_wandb > 2:
         logging_smoother_wandb = True
+        logging_dyn_wandb = True
+    elif logging_mode_wandb == 2:
+        logging_smoother_wandb = False
         logging_dyn_wandb = True
     else:
         logging_smoother_wandb = False
