@@ -2,7 +2,7 @@ from differentiators.utils import generate_base_command, generate_run_commands, 
 import differentiators.exp as exp
 
 general_configs = {
-    'project_name': 'BNNSmootherAndDynamics_240513',
+    'project_name': ['BNNSmootherAndDynamics_240513'],
     'seed': [0, 1],
     'num_traj': [12],
     'noise_level': [None],
