@@ -8,13 +8,14 @@ general_configs = {
     'sample_points': [64],
     'smoother_particles': [12],
     'dyn_particles': [12],
-    'smoother_training_steps': [1000],
-    'dyn_training_steps': [4000],
+    'smoother_training_steps': [1000, 4000],
+    'dyn_training_steps': [4000, 16000, 64000],
     'smoother_weight_decay': [3e-4],
     'dyn_weight_decay': [3e-4],
     'smoother_type': ['DeterministicEnsemble'],
     'dyn_type': ['DeterministicEnsemble'],
     'logging_mode_wandb': [2],
+    'x_src': ['smoother', 'data'],
 }
 
 def main():
@@ -29,7 +30,7 @@ def main():
                           num_cpus=1,
                           num_gpus=1,
                           mode='euler',
-                          duration='3:59:00',
+                          duration='23:59:00',
                           prompt=True,
                           mem = 4 * 1028)
 

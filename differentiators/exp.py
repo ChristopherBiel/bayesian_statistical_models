@@ -29,7 +29,8 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                dyn_weight_decay: float = 1e-4,
                smoother_type: str = 'DeterministicEnsemble',
                dyn_type: str = 'DeterministicEnsemble',
-               logging_mode_wandb: int = 0,):
+               logging_mode_wandb: int = 0,
+               x_src: str = 'smoother'):
     
     # Input checks
     assert num_traj > 0
@@ -68,6 +69,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                                  key=key,
                                                  num_trajectories=num_traj,
                                                  initial_states=None,)
+
     if logging_mode_wandb > 0:
         fig = plot_data(t, x, u, x_dot, title='One trajectory of the sampled training data (pendulum)')
         wandb.log({'Training Data': wandb.Image(fig)})
@@ -76,6 +78,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
 
     input_dim = smoother_data.inputs.shape[-1]
     output_dim = smoother_data.outputs.shape[-1]
+    control_dim = u.shape[-1]
     if noise_level is None:
         data_std = jnp.ones(shape=(output_dim,))
     else:
@@ -176,12 +179,19 @@ def experiment(project_name: str = 'LearnDynamicsModel',
         wandb.log({'smoother': wandb.Image(plt)})
 
     # -------------------- Dynamics Model --------------------
-    # The split data is concatinated again
-    inputs = pred_x.mean.reshape(-1, output_dim)
+    # The split data is concatinated again and add the input
+    if x_src == 'smoother':
+        smoother_x = pred_x.mean.reshape(-1, output_dim)
+        inputs = jnp.concatenate([smoother_x, u.reshape(-1,control_dim)], axis=-1)
+    elif x_src == 'data':
+        inputs = jnp.concatenate([x.reshape(-1, output_dim), u.reshape(-1,control_dim)], axis=-1)
+    else:
+        raise ValueError(f"No x source {x_src}")
     outputs = ders.mean.reshape(-1, output_dim)
+
     dyn_data = Data(inputs=inputs, outputs=outputs)
     if dyn_type == 'DeterministicEnsemble':
-        dyn_model = BNNStatisticalModel(input_dim=output_dim,
+        dyn_model = BNNStatisticalModel(input_dim=output_dim+control_dim,
                                         output_dim=output_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
@@ -194,7 +204,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         weight_decay=dyn_weight_decay
                                         )
     elif dyn_type == 'ProbabilisticEnsemble':
-        dyn_model = BNNStatisticalModel(input_dim=output_dim,
+        dyn_model = BNNStatisticalModel(input_dim=output_dim+control_dim,
                                         output_dim=output_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
@@ -207,7 +217,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         weight_decay=dyn_weight_decay
                                         )
     elif dyn_type == 'DeterministicFSVGDEnsemble':
-        dyn_model = BNNStatisticalModel(input_dim=output_dim,
+        dyn_model = BNNStatisticalModel(input_dim=output_dim+control_dim,
                                         output_dim=output_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
@@ -220,7 +230,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         weight_decay=dyn_weight_decay
                                         )
     elif dyn_type == 'ProbabilisticFSVGDEnsemble':
-        dyn_model = BNNStatisticalModel(input_dim=output_dim,
+        dyn_model = BNNStatisticalModel(input_dim=output_dim+control_dim,
                                         output_dim=output_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
@@ -268,7 +278,8 @@ def main(args):
                dyn_weight_decay=args.dyn_weight_decay,
                smoother_type=args.smoother_type,
                dyn_type=args.dyn_type,
-               logging_mode_wandb=args.logging_mode_wandb)
+               logging_mode_wandb=args.logging_mode_wandb,
+               x_src=args.x_src)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -288,5 +299,6 @@ if __name__ == '__main__':
     parser.add_argument('--smoother_type', type=str, default='ProbabilisticFSVGDEnsemble')
     parser.add_argument('--dyn_type', type=str, default='ProbabilisticFSVGDEnsemble')
     parser.add_argument('--logging_mode_wandb', type=int, default=1)
+    parser.add_argument('--x-src', type=str, default='smoother')
     args = parser.parse_args()
     main(args)
