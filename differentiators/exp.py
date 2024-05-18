@@ -54,7 +54,8 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                   dyn_weight_decay=dyn_weight_decay,
                   smoother_type=smoother_type,
                   dyn_type=dyn_type,
-                  logging_mode_wandb=logging_mode_wandb,)
+                  logging_mode_wandb=logging_mode_wandb,
+                  x_src=x_src)
     
     if logging_mode_wandb > 0:
         import wandb
@@ -298,7 +299,7 @@ if __name__ == '__main__':
     parser.add_argument('--dyn_weight_decay', type=float, default=3e-4)
     parser.add_argument('--smoother_type', type=str, default='ProbabilisticFSVGDEnsemble')
     parser.add_argument('--dyn_type', type=str, default='ProbabilisticFSVGDEnsemble')
-    parser.add_argument('--logging_mode_wandb', type=int, default=1)
-    parser.add_argument('--x-src', type=str, default='smoother')
+    parser.add_argument('--logging_mode_wandb', type=int, default=2)
+    parser.add_argument('--x_src', type=str, default='data')
     args = parser.parse_args()
     main(args)
