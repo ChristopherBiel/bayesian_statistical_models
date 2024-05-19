@@ -2,20 +2,20 @@ from differentiators.utils import generate_base_command, generate_run_commands, 
 import differentiators.exp as exp
 
 general_configs = {
-    'project_name': ['BNNSmootherAndDynamics_240513'],
-    'seed': [0],
+    'project_name': ['BNNSmootherSweep_240519'],
+    'seed': [0, 1, 2],
     'num_traj': [12],
     'sample_points': [64],
-    'smoother_particles': [12],
+    'smoother_particles': [4, 8, 12, 16],
     'dyn_particles': [12],
-    'smoother_training_steps': [1000, 4000],
-    'dyn_training_steps': [4000, 16000, 64000],
-    'smoother_weight_decay': [3e-4],
+    'smoother_training_steps': [1000, 2000, 4000, 8000],
+    'dyn_training_steps': [4000],
+    'smoother_weight_decay': [8e-4, 3e-4, 1e-4, 3e-5],
     'dyn_weight_decay': [3e-4],
-    'smoother_type': ['DeterministicEnsemble'],
+    'smoother_type': ['DeterministicEnsemble','ProbabilisticEnsemble', 'DeterministicFSVGDEnsemble', 'ProbabilisticFSVGDEnsemble'],
     'dyn_type': ['DeterministicEnsemble'],
     'logging_mode_wandb': [2],
-    'x_src': ['smoother', 'data'],
+    'x_src': ['smoother'],
 }
 
 def main():

@@ -1,3 +1,4 @@
+import jax
 import jax.numpy as jnp
 import jax.random as jr
 import matplotlib.pyplot as plt
@@ -157,9 +158,6 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     pred_x = model.smoother_predict(smoother_data.inputs, model_states)
     ders = model.calcDerivative(model_states, smoother_data)
 
-    print(f"Prediction shape: {pred_x.mean.shape}")
-    print(f"Derivatives shape: {ders.mean.shape}")
-
     # Plot the results for the first three trajectories
     if logging_mode_wandb > 0:
         fig, axes = plt.subplots(output_dim, min(3, num_traj), figsize=(16, 9))
@@ -179,6 +177,15 @@ def experiment(project_name: str = 'LearnDynamicsModel',
         plt.tight_layout()
         wandb.log({'smoother': wandb.Image(plt)})
 
+    # Calculate the smoother error
+    def mse(x_dot, x_dot_pred):
+        return jnp.power((x_dot-x_dot_pred),2).mean()
+    def dim_mse(x_dot, x_dot_pred):
+        v_apply1 = jax.vmap(mse, in_axes=(0, 0))
+        return v_apply1(x_dot, x_dot_pred).mean(axis=0)
+    wandb.log({"smoother_mse": jax.vmap(dim_mse, in_axes=(2, 2))(x_dot, ders.mean)})
+
+    exit()
     # -------------------- Dynamics Model --------------------
     # The split data is concatinated again and add the input
     if x_src == 'smoother':
@@ -294,12 +301,12 @@ if __name__ == '__main__':
     parser.add_argument('--smoother_particles', type=int, default=10)
     parser.add_argument('--dyn_particles', type=int, default=10)
     parser.add_argument('--smoother_training_steps', type=int, default=1000)
-    parser.add_argument('--dyn_training_steps', type=int, default=4000)
+    parser.add_argument('--dyn_training_steps', type=int, default=64000)
     parser.add_argument('--smoother_weight_decay', type=float, default=3e-4)
     parser.add_argument('--dyn_weight_decay', type=float, default=3e-4)
     parser.add_argument('--smoother_type', type=str, default='ProbabilisticFSVGDEnsemble')
     parser.add_argument('--dyn_type', type=str, default='ProbabilisticFSVGDEnsemble')
-    parser.add_argument('--logging_mode_wandb', type=int, default=2)
+    parser.add_argument('--logging_mode_wandb', type=int, default=0)
     parser.add_argument('--x_src', type=str, default='data')
     args = parser.parse_args()
     main(args)
