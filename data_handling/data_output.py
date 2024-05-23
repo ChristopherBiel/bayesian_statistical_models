@@ -10,7 +10,7 @@ def plot_derivative_data(t: chex.Array,
                          x_dot_true: chex.Array,
                          x_dot_est: chex.Array,
                          x_dot_est_std: chex.Array,
-                         x_dot_smother: chex.Array,
+                         x_dot_smoother: chex.Array,
                          x_dot_smoother_std: chex.Array,
                          beta: chex.Array,
                          source: str,
@@ -40,10 +40,10 @@ def plot_derivative_data(t: chex.Array,
                                             (x_dot_est[k02,:,k01] - beta[k01] * x_dot_est_std[k02,:,k01]).reshape(-1),
                                             (x_dot_est[k02,:,k01] + beta[k01] * x_dot_est_std[k02,:,k01]).reshape(-1),
                                             label=r'$2\sigma$', alpha=0.3, color='blue')
-                axes[k01][k02].plot(t[k02,:,0].reshape(-1), x_dot_smother[k02,:,k01], label=r'$\dot{x}_{SMOOTHER}$')
+                axes[k01][k02].plot(t[k02,:,0].reshape(-1), x_dot_smoother[k02,:,k01], label=r'$\dot{x}_{SMOOTHER}$')
                 axes[k01][k02].fill_between(t[0,:,0].reshape(-1),
-                                            (x_dot_smother[k02,:,k01] - beta[k01] * x_dot_smoother_std[k02,:,k01]).reshape(-1),
-                                            (x_dot_smother[k02,:,k01] + beta[k01] * x_dot_smoother_std[k02,:,k01]).reshape(-1),
+                                            (x_dot_smoother[k02,:,k01] - beta[k01] * x_dot_smoother_std[k02,:,k01]).reshape(-1),
+                                            (x_dot_smoother[k02,:,k01] + beta[k01] * x_dot_smoother_std[k02,:,k01]).reshape(-1),
                                             label=r'$2\sigma$', alpha=0.3, color='blue')
                 axes[k01][k02].plot(t[0,:,0].reshape(-1), x_dot_true[k02,:,k01], label=r'$\dot{x}_{TRUE}$')
                 axes[k01][k02].set_ylabel(r'state $x_{%s}$' %(str(k01)))
@@ -56,10 +56,10 @@ def plot_derivative_data(t: chex.Array,
                                     (x_dot_est[0,:,k01] - beta[k01] * x_dot_est_std[0,:,k01]).reshape(-1),
                                     (x_dot_est[0,:,k01] + beta[k01] * x_dot_est_std[0,:,k01]).reshape(-1),
                                     label=r'$2\sigma$', alpha=0.3, color='blue')
-            axes[k01].plot(t[0,:,0].reshape(-1), x_dot_smother[0,:,k01], label=r'$\dot{x}_{SMOOTHER}$')
+            axes[k01].plot(t[0,:,0].reshape(-1), x_dot_smoother[0,:,k01], label=r'$\dot{x}_{SMOOTHER}$')
             axes[k01].fill_between(t[0,:,0].reshape(-1),
-                                    (x_dot_smother[0,:,k01] - beta[k01] * x_dot_smoother_std[0,:,k01]).reshape(-1),
-                                    (x_dot_smother[0,:,k01] + beta[k01] * x_dot_smoother_std[0,:,k01]).reshape(-1),
+                                    (x_dot_smoother[0,:,k01] - beta[k01] * x_dot_smoother_std[0,:,k01]).reshape(-1),
+                                    (x_dot_smoother[0,:,k01] + beta[k01] * x_dot_smoother_std[0,:,k01]).reshape(-1),
                                     label=r'$2\sigma$', alpha=0.3, color='blue')
             axes[k01].plot(t[0,:,0].reshape(-1), x_dot_true[0,:,k01], label=r'$\dot{x}_{TRUE}$')
             axes[k01].set_ylabel(r'state $x_{%s}$' %(str(k01)))
