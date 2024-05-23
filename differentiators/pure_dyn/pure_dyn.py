@@ -184,7 +184,7 @@ if __name__ == '__main__':
     parser.add_argument('--noise_level', type=float, default=None)
     parser.add_argument('--sample_points', type=int, default=64)
     parser.add_argument('--num_traj_train', type=int, default=12)
-    parser.add_argument('--dyn_features', type=list, default=[128, 128])
+    parser.add_argument('--dyn_features', type=list, default=64)
     parser.add_argument('--dyn_particles', type=int, default=10)
     parser.add_argument('--dyn_training_steps', type=int, default=24000)
     parser.add_argument('--dyn_weight_decay', type=float, default=2e-4)
