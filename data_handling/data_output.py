@@ -6,30 +6,32 @@ from data_handling.data_handling import split_dataset
 
 def plot_derivative_data(t: chex.Array,
                          x: chex.Array,
-                         x_est: chex.Array,
                          x_dot_true: chex.Array,
                          x_dot_est: chex.Array,
                          x_dot_est_std: chex.Array,
-                         x_dot_smoother: chex.Array,
-                         x_dot_smoother_std: chex.Array,
                          beta: chex.Array,
                          source: str,
+                         x_dot_smoother: chex.Array = None,
+                         x_dot_smoother_std: chex.Array = None,
                          num_trajectories_to_plot: int = 1,
                          ) -> plt.figure:
+    """Either pass all states and values with three dimensions (num_traj, num_samples, num_states)
+    OR pass all states and values with only two dimensions (num_traj*num_samples, num_states)"""
+    
     state_dim = x.shape[-1]
-    assert x.shape == x_est.shape == x_dot_true.shape == x_dot_est.shape == x_dot_est_std.shape
+    assert x.shape == x_dot_true.shape == x_dot_est.shape == x_dot_est_std.shape
     assert num_trajectories_to_plot > 0, "The number of trajectories too plot must be more than zero"
     
     # Data has to be split again to be able to plot individual trajectories easier
-    data = Data(inputs=t, outputs=jnp.concatenate([x, x_est, x_dot_true, x_dot_est, x_dot_est_std], axis=-1))
-    data, num_trajectories = split_dataset(data)
+    if x.ndim == 2:
+        data = Data(inputs=t, outputs=jnp.concatenate([x, x_dot_true, x_dot_est, x_dot_est_std], axis=-1))
+        data, num_trajectories = split_dataset(data)
 
-    t = data.inputs
-    x = data.outputs[:,:,:state_dim]
-    x_est = data.outputs[:,:,state_dim:state_dim*2]
-    x_dot_true = data.outputs[:,:,state_dim*2:state_dim*3]
-    x_dot_est = data.outputs[:,:,state_dim*3:state_dim*4]
-    x_dot_est_std = data.outputs[:,:,state_dim*4:]
+        t = data.inputs
+        x = data.outputs[:,:,:state_dim]
+        x_dot_true = data.outputs[:,:,state_dim:state_dim*2]
+        x_dot_est = data.outputs[:,:,state_dim*2:state_dim*3]
+        x_dot_est_std = data.outputs[:,:,state_dim*3:]
 
     fig, axes = plt.subplots(state_dim, num_trajectories_to_plot, figsize=(16,9))
     for k01 in range(state_dim):
