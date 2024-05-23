@@ -22,6 +22,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                num_traj: int = 12,
                sample_points: int = 64,
                noise_level: float = None,
+               num_traj_train: int = 12,
                dyn_features: list = [128, 128],
                dyn_particles: int = 10,
                dyn_training_steps: int = 1000,
@@ -80,20 +81,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
         logging_dyn_wandb = False
 
     # -------------------- Dynamics Model --------------------
-    # The split data is concatinated again and add the input
-    # if x_src == 'smoother':
-    #     smoother_x = pred_x.mean.reshape(-1, output_dim)
-    #     inputs = jnp.concatenate([smoother_x, u.reshape(-1,control_dim)], axis=-1)
-    # elif x_src == 'data':
-    #     inputs = jnp.concatenate([x.reshape(-1, output_dim), u.reshape(-1,control_dim)], axis=-1)
-    # else:
-    #     raise ValueError(f"No x source {x_src}")
-    # outputs = x_dot.reshape(-1, output_dim)
 
-    # dyn_data = Data(inputs=inputs, outputs=outputs)
-
-    num_traj_train = 1
-    # Alternative: Train just on one trajectory
     x_train = x[:num_traj_train,:,:].reshape(-1,output_dim)
     u_train = u[:num_traj_train,:,:].reshape(-1,control_dim)
     x_dot_train = x_dot[:num_traj_train,:,:].reshape(-1,output_dim)
@@ -177,6 +165,7 @@ def main(args):
                seed=args.seed,
                num_traj=args.num_traj,
                sample_points=args.sample_points,
+               num_traj_train = args.num_traj_train,
                noise_level=args.noise_level,
                dyn_features=args.dyn_features,
                dyn_particles=args.dyn_particles,
@@ -193,11 +182,12 @@ if __name__ == '__main__':
     parser.add_argument('--num_traj', type=int, default=12)
     parser.add_argument('--noise_level', type=float, default=None)
     parser.add_argument('--sample_points', type=int, default=64)
+    parser.add_argument('--num_traj_train', type=int, default=12)
     parser.add_argument('--dyn_features', type=list, default=[128, 128])
     parser.add_argument('--dyn_particles', type=int, default=10)
-    parser.add_argument('--dyn_training_steps', type=int, default=16000)
-    parser.add_argument('--dyn_weight_decay', type=float, default=3e-4)
+    parser.add_argument('--dyn_training_steps', type=int, default=24000)
+    parser.add_argument('--dyn_weight_decay', type=float, default=2e-4)
     parser.add_argument('--dyn_type', type=str, default='DeterministicFSVGDEnsemble')
-    parser.add_argument('--logging_mode_wandb', type=int, default=1)
+    parser.add_argument('--logging_mode_wandb', type=int, default=2)
     args = parser.parse_args()
     main(args)
