@@ -1,21 +1,21 @@
 from differentiators.utils import generate_base_command, generate_run_commands, dict_permutations
-import differentiators.exp as exp
+import differentiators.nn_smoother.exp as exp
 
 general_configs = {
     'project_name': ['BNNSmootherSweep_240523'],
     'seed': [0, 1],
     'num_traj': [12],
     'sample_points': [64],
-    'smoother_particles': [8, 12, 16],
-    'dyn_particles': [12],
-    'smoother_training_steps': [1000, 2000, 4000, 8000],
-    'dyn_training_steps': [4000],
-    'smoother_weight_decay': [8e-4, 3e-4, 1e-4, 3e-5],
-    'dyn_weight_decay': [3e-4],
-    'smoother_type': ['DeterministicEnsemble','ProbabilisticEnsemble', 'DeterministicFSVGDEnsemble', 'ProbabilisticFSVGDEnsemble'],
-    'dyn_type': ['DeterministicEnsemble'],
+    'smoother_particles': [16],
+    'dyn_particles': [12, 16],
+    'smoother_training_steps': [4000, 8000],
+    'dyn_training_steps': [4000, 16000, 64000],
+    'smoother_weight_decay': [2e-4],
+    'dyn_weight_decay': [8e-4, 2e-4, 8e-5, 2e-5],
+    'smoother_type': ['DeterministicEnsemble'],
+    'dyn_type': ['DeterministicEnsemble', 'DeterministicFSVGDEnsemble'],
     'logging_mode_wandb': [2],
-    'x_src': ['smoother'],
+    'x_src': ['smoother', 'data'],
 }
 
 def main():

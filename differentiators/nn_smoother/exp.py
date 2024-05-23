@@ -178,17 +178,16 @@ def experiment(project_name: str = 'LearnDynamicsModel',
         wandb.log({'smoother': wandb.Image(plt)})
 
     # Calculate the smoother error
-    def mse(x_dot, x_dot_pred):
-        return jnp.power((x_dot-x_dot_pred),2).mean()
-    def dim_mse(x_dot, x_dot_pred):
-        v_apply1 = jax.vmap(mse, in_axes=(0, 0))
-        return v_apply1(x_dot, x_dot_pred).mean(axis=0)
-    smoother_mse = jax.vmap(dim_mse, in_axes=(2, 2))(x_dot, ders.mean)
-    wandb.log({"smoother_mse_dim1": smoother_mse[0]})
-    wandb.log({"smoother_mse_dim2": smoother_mse[1]})
-    wandb.log({"smoother_mse_comb": smoother_mse[0] + smoother_mse[1]})
+    # def mse(x_dot, x_dot_pred):
+    #     return jnp.power((x_dot-x_dot_pred),2).mean()
+    # def dim_mse(x_dot, x_dot_pred, x_dot_pred_var):
+    #     v_apply1 = jax.vmap(mse, in_axes=(0, 0))
+    #     return v_apply1(x_dot, x_dot_pred).mean(axis=0)
+    # smoother_mse = jax.vmap(dim_mse, in_axes=(2, 2))(x_dot, ders.mean)
+    # wandb.log({"smoother_mse_dim1": smoother_mse[0]})
+    # wandb.log({"smoother_mse_dim2": smoother_mse[1]})
+    # wandb.log({"smoother_mse_comb": smoother_mse[0] + smoother_mse[1]})
 
-    exit()
     # -------------------- Dynamics Model --------------------
     # The split data is concatinated again and add the input
     if x_src == 'smoother':
@@ -198,7 +197,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
         inputs = jnp.concatenate([x.reshape(-1, output_dim), u.reshape(-1,control_dim)], axis=-1)
     else:
         raise ValueError(f"No x source {x_src}")
-    outputs = ders.mean.reshape(-1, output_dim)
+    outputs = x_dot.reshape(-1, output_dim)
 
     dyn_data = Data(inputs=inputs, outputs=outputs)
     if dyn_type == 'DeterministicEnsemble':
@@ -298,18 +297,18 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num_traj', type=int, default=12)
     parser.add_argument('--noise_level', type=float, default=None)
-    parser.add_argument('--sample_points', type=int, default=48)
+    parser.add_argument('--sample_points', type=int, default=64)
     parser.add_argument('--smoother_features', type=list, default=[64, 64])
     parser.add_argument('--dyn_features', type=list, default=[128, 128])
-    parser.add_argument('--smoother_particles', type=int, default=10)
+    parser.add_argument('--smoother_particles', type=int, default=16)
     parser.add_argument('--dyn_particles', type=int, default=10)
-    parser.add_argument('--smoother_training_steps', type=int, default=1000)
-    parser.add_argument('--dyn_training_steps', type=int, default=64000)
+    parser.add_argument('--smoother_training_steps', type=int, default=8000)
+    parser.add_argument('--dyn_training_steps', type=int, default=16000)
     parser.add_argument('--smoother_weight_decay', type=float, default=3e-4)
     parser.add_argument('--dyn_weight_decay', type=float, default=3e-4)
-    parser.add_argument('--smoother_type', type=str, default='ProbabilisticFSVGDEnsemble')
-    parser.add_argument('--dyn_type', type=str, default='ProbabilisticFSVGDEnsemble')
-    parser.add_argument('--logging_mode_wandb', type=int, default=0)
+    parser.add_argument('--smoother_type', type=str, default='DeterministicEnsemble')
+    parser.add_argument('--dyn_type', type=str, default='DeterministicFSVGDEnsemble')
+    parser.add_argument('--logging_mode_wandb', type=int, default=1)
     parser.add_argument('--x_src', type=str, default='data')
     args = parser.parse_args()
     main(args)
