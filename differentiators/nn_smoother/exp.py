@@ -82,7 +82,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     output_dim = smoother_data.outputs.shape[-1]
     control_dim = u.shape[-1]
     if noise_level is None:
-        data_std = jnp.ones(shape=(output_dim,))
+        data_std = jnp.ones(shape=(output_dim,)) * 0.001
     else:
         data_std = noise_level * jnp.ones(shape=(output_dim,))
 
