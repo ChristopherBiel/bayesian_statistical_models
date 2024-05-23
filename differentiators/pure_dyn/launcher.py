@@ -9,7 +9,7 @@ general_configs = {
     'num_traj_train': [1, 2, 12],
     'dyn_features': [32, 64, 128],
     'dyn_particles': [10],
-    'dyn_training_steps': [4000, 16000, 64000],
+    'dyn_training_steps': [1000, 4000, 16000],
     'dyn_weight_decay': [2e-4, 8e-5],
     'dyn_type': ['DeterministicEnsemble', 'DeterministicFSVGDEnsemble'],
     'logging_mode_wandb': [2],
