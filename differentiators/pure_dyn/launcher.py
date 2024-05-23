@@ -2,7 +2,7 @@ from differentiators.utils import generate_base_command, generate_run_commands, 
 import differentiators.pure_dyn.pure_dyn as exp
 
 general_configs = {
-    'project_name': ['DynModelOnly_Sweep_240523'],
+    'project_name': ['DynModelOnly_Sweep_240524'],
     'seed': [0, 1],
     'num_traj': [12],
     'sample_points': [48, 64],
