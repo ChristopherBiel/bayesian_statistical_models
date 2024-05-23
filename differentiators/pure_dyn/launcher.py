@@ -3,12 +3,12 @@ import differentiators.pure_dyn.pure_dyn as exp
 
 general_configs = {
     'project_name': ['BNNSmootherSweep_240523'],
-    'seed': [0, 1, 2],
+    'seed': [0, 1],
     'num_traj': [12],
-    'sample_points': [48, 64, 128],
-    'num_traj_train': [1, 2, 4, 12],
-    'dyn_particles': [12, 16, 20, 24],
-    'dyn_training_steps': [4000, 16000, 24000, 32000, 480000, 64000],
+    'sample_points': [48, 64],
+    'num_traj_train': [1, 2, 12],
+    'dyn_particles': [12, 16, 24],
+    'dyn_training_steps': [4000, 16000, 64000],
     'dyn_weight_decay': [8e-4, 2e-4, 8e-5, 2e-5],
     'dyn_type': ['DeterministicEnsemble', 'DeterministicFSVGDEnsemble'],
     'logging_mode_wandb': [2],
