@@ -23,7 +23,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                sample_points: int = 64,
                noise_level: float = None,
                num_traj_train: int = 12,
-               dyn_features: list = [128, 128],
+               dyn_features: int = 128,
                dyn_particles: int = 10,
                dyn_training_steps: int = 1000,
                dyn_weight_decay: float = 1e-4,
@@ -89,7 +89,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     dyn_data = Data(inputs=jnp.concatenate([x_train, u_train], axis=-1), outputs=x_dot_train)
 
     print(f"Using new Data with input shape {dyn_data.inputs.shape} and output shape {dyn_data.outputs.shape}")
-
+    dyn_features = [dyn_features, dyn_features]
     if dyn_type == 'DeterministicEnsemble':
         dyn_model = BNNStatisticalModel(input_dim=output_dim+control_dim,
                                         output_dim=output_dim,
