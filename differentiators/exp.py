@@ -183,7 +183,10 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     def dim_mse(x_dot, x_dot_pred):
         v_apply1 = jax.vmap(mse, in_axes=(0, 0))
         return v_apply1(x_dot, x_dot_pred).mean(axis=0)
-    wandb.log({"smoother_mse": jax.vmap(dim_mse, in_axes=(2, 2))(x_dot, ders.mean)})
+    smoother_mse = jax.vmap(dim_mse, in_axes=(2, 2))(x_dot, ders.mean)
+    wandb.log({"smoother_mse_dim1": smoother_mse[0]})
+    wandb.log({"smoother_mse_dim2": smoother_mse[1]})
+    wandb.log({"smoother_mse_comb": smoother_mse[0] + smoother_mse[1]})
 
     exit()
     # -------------------- Dynamics Model --------------------

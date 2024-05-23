@@ -2,11 +2,11 @@ from differentiators.utils import generate_base_command, generate_run_commands, 
 import differentiators.exp as exp
 
 general_configs = {
-    'project_name': ['BNNSmootherSweep_240519'],
-    'seed': [0, 1, 2],
+    'project_name': ['BNNSmootherSweep_240523'],
+    'seed': [0, 1],
     'num_traj': [12],
     'sample_points': [64],
-    'smoother_particles': [4, 8, 12, 16],
+    'smoother_particles': [8, 12, 16],
     'dyn_particles': [12],
     'smoother_training_steps': [1000, 2000, 4000, 8000],
     'dyn_training_steps': [4000],
@@ -28,7 +28,7 @@ def main():
     # submit the jobs
     generate_run_commands(command_list,
                           num_cpus=1,
-                          num_gpus=0,
+                          num_gpus=1,
                           mode='euler',
                           duration='23:59:00',
                           prompt=True,
