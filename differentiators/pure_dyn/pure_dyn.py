@@ -23,10 +23,12 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                sample_points: int = 64,
                noise_level: float = None,
                num_traj_train: int = 12,
-               dyn_features: int = 128,
+               dyn_feature_size: int = 128,
+               dyn_num_hidden_layers: int = 2,
                dyn_particles: int = 10,
                dyn_training_steps: int = 1000,
                dyn_weight_decay: float = 1e-4,
+               dyn_train_share: float = 1,
                dyn_type: str = 'DeterministicEnsemble',
                logging_mode_wandb: int = 0,
                ):
@@ -42,10 +44,12 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                   sample_points=sample_points,
                   noise_level=noise_level,
                   num_traj_train=num_traj_train,
-                  dyn_features=dyn_features,
+                  dyn_feature_size=dyn_feature_size,
+                  dyn_num_hidden_layers=dyn_num_hidden_layers,
                   dyn_particles=dyn_particles,
                   dyn_training_steps=dyn_training_steps,
                   dyn_weight_decay=dyn_weight_decay,
+                  dyn_train_share=dyn_train_share,
                   dyn_type=dyn_type,
                   logging_mode_wandb=logging_mode_wandb,
                 )
@@ -89,7 +93,8 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     dyn_data = Data(inputs=jnp.concatenate([x_train, u_train], axis=-1), outputs=x_dot_train)
 
     print(f"Using new Data with input shape {dyn_data.inputs.shape} and output shape {dyn_data.outputs.shape}")
-    dyn_features = [dyn_features, dyn_features]
+    # Change the features to the desired size
+    dyn_features = [dyn_feature_size] * dyn_num_hidden_layers
     if dyn_type == 'DeterministicEnsemble':
         dyn_model = BNNStatisticalModel(input_dim=output_dim+control_dim,
                                         output_dim=output_dim,
@@ -99,7 +104,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=DeterministicEnsemble,
-                                        train_share=0.6,
+                                        train_share=dyn_train_share,
                                         num_training_steps=dyn_training_steps,
                                         weight_decay=dyn_weight_decay
                                         )
@@ -112,7 +117,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=ProbabilisticEnsemble,
-                                        train_share=0.6,
+                                        train_share=dyn_train_share,
                                         num_training_steps=dyn_training_steps,
                                         weight_decay=dyn_weight_decay
                                         )
@@ -125,7 +130,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=DeterministicFSVGDEnsemble,
-                                        train_share=0.6,
+                                        train_share=dyn_train_share,
                                         num_training_steps=dyn_training_steps,
                                         weight_decay=dyn_weight_decay
                                         )
@@ -138,7 +143,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=ProbabilisticFSVGDEnsemble,
-                                        train_share=0.6,
+                                        train_share=dyn_train_share,
                                         num_training_steps=dyn_training_steps,
                                         weight_decay=dyn_weight_decay
                                         )
@@ -168,10 +173,12 @@ def main(args):
                sample_points=args.sample_points,
                num_traj_train = args.num_traj_train,
                noise_level=args.noise_level,
-               dyn_features=args.dyn_features,
+               dyn_feature_size=args.dyn_feature_size,
+               dyn_num_hidden_layers=args.dyn_num_hidden_layers,
                dyn_particles=args.dyn_particles,
                dyn_training_steps=args.dyn_training_steps,
                dyn_weight_decay=args.dyn_weight_decay,
+               dyn_train_share=args.dyn_train_share,
                dyn_type=args.dyn_type,
                logging_mode_wandb=args.logging_mode_wandb,
                )
@@ -180,14 +187,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--project_name', type=str, default='LearnDynamicsModel')
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--num_traj', type=int, default=12)
+    parser.add_argument('--num_traj', type=int, default=3)
     parser.add_argument('--noise_level', type=float, default=None)
     parser.add_argument('--sample_points', type=int, default=64)
-    parser.add_argument('--num_traj_train', type=int, default=12)
-    parser.add_argument('--dyn_features', type=list, default=64)
+    parser.add_argument('--num_traj_train', type=int, default=3)
+    parser.add_argument('--dyn_feature_size', type=int, default=32)
+    parser.add_argument('--dyn_num_hidden_layers', type=int, default=2)
     parser.add_argument('--dyn_particles', type=int, default=10)
-    parser.add_argument('--dyn_training_steps', type=int, default=24000)
+    parser.add_argument('--dyn_training_steps', type=int, default=48000)
     parser.add_argument('--dyn_weight_decay', type=float, default=2e-4)
+    parser.add_argument('--dyn_train_share', type=float, default=0.8)
     parser.add_argument('--dyn_type', type=str, default='DeterministicFSVGDEnsemble')
     parser.add_argument('--logging_mode_wandb', type=int, default=2)
     args = parser.parse_args()
