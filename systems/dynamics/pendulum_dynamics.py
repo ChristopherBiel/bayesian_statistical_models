@@ -26,6 +26,13 @@ class PendulumDynamics(Dynamics[PendulumDynamicsParams]):
     def init_params(self, key: chex.PRNGKey) -> PendulumDynamicsParams:
         return PendulumDynamicsParams()
 
+    def get_compressed_state(self, x: chex.Array) -> chex.Array:
+        chex.assert_shape(x, (self.x_dim,))
+        th = jnp.arctan2(x[1], x[0])
+        thdot = x[-1]
+        x_compressed = jnp.array([th, thdot])
+        return x_compressed
+
     def next_state(self,
                    x: chex.Array,
                    u: chex.Array,
