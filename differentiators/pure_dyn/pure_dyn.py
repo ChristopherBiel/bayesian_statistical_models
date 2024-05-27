@@ -72,13 +72,13 @@ def experiment(project_name: str = 'LearnDynamicsModel',
         fig = plot_data(t, x, u, x_dot, title='One trajectory of the sampled training data (pendulum)')
         wandb.log({'Training Data': wandb.Image(fig)})
 
-    output_dim = x.shape[-1]
+    state_dim = x.shape[-1]
     control_dim = u.shape[-1]
 
     if noise_level is None:
-        data_std = jnp.ones(shape=(output_dim,)) * 0.001
+        data_std = jnp.ones(shape=(state_dim,)) * 0.001
     else:
-        data_std = noise_level * jnp.ones(shape=(output_dim,))
+        data_std = noise_level * jnp.ones(shape=(state_dim,))
 
     if logging_mode_wandb > 1:
         logging_dyn_wandb = True
@@ -87,20 +87,20 @@ def experiment(project_name: str = 'LearnDynamicsModel',
 
     # -------------------- Dynamics Model --------------------
 
-    x_train = x[:num_traj_train,:,:].reshape(-1,output_dim)
+    x_train = x[:num_traj_train,:,:].reshape(-1,state_dim)
     u_train = u[:num_traj_train,:,:].reshape(-1,control_dim)
-    x_dot_train = x_dot[:num_traj_train,:,:].reshape(-1,output_dim)
+    x_dot_train = x_dot[:num_traj_train,:,:].reshape(-1,state_dim)
     dyn_data = Data(inputs=jnp.concatenate([x_train, u_train], axis=-1), outputs=x_dot_train)
 
     print(f"Using new Data with input shape {dyn_data.inputs.shape} and output shape {dyn_data.outputs.shape}")
     # Change the features to the desired size
     dyn_features = [dyn_feature_size] * dyn_num_hidden_layers
     if dyn_type == 'DeterministicEnsemble':
-        dyn_model = BNNStatisticalModel(input_dim=output_dim+control_dim,
-                                        output_dim=output_dim,
+        dyn_model = BNNStatisticalModel(input_dim=state_dim+control_dim,
+                                        output_dim=state_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
-                                        beta=jnp.ones(shape=(output_dim,))*2,
+                                        beta=jnp.ones(shape=(state_dim,))*2,
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=DeterministicEnsemble,
@@ -109,11 +109,11 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         weight_decay=dyn_weight_decay
                                         )
     elif dyn_type == 'ProbabilisticEnsemble':
-        dyn_model = BNNStatisticalModel(input_dim=output_dim+control_dim,
-                                        output_dim=output_dim,
+        dyn_model = BNNStatisticalModel(input_dim=state_dim+control_dim,
+                                        output_dim=state_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
-                                        beta=jnp.ones(shape=(output_dim,))*2,
+                                        beta=jnp.ones(shape=(state_dim,))*2,
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=ProbabilisticEnsemble,
@@ -122,11 +122,11 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         weight_decay=dyn_weight_decay
                                         )
     elif dyn_type == 'DeterministicFSVGDEnsemble':
-        dyn_model = BNNStatisticalModel(input_dim=output_dim+control_dim,
-                                        output_dim=output_dim,
+        dyn_model = BNNStatisticalModel(input_dim=state_dim+control_dim,
+                                        output_dim=state_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
-                                        beta=jnp.ones(shape=(output_dim,))*2,
+                                        beta=jnp.ones(shape=(state_dim,))*2,
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=DeterministicFSVGDEnsemble,
@@ -135,11 +135,11 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         weight_decay=dyn_weight_decay
                                         )
     elif dyn_type == 'ProbabilisticFSVGDEnsemble':
-        dyn_model = BNNStatisticalModel(input_dim=output_dim+control_dim,
-                                        output_dim=output_dim,
+        dyn_model = BNNStatisticalModel(input_dim=state_dim+control_dim,
+                                        output_dim=state_dim,
                                         output_stds=data_std,
                                         logging_wandb=logging_dyn_wandb,
-                                        beta=jnp.ones(shape=(output_dim,))*2,
+                                        beta=jnp.ones(shape=(state_dim,))*2,
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=ProbabilisticFSVGDEnsemble,
