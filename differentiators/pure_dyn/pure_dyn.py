@@ -198,7 +198,7 @@ if __name__ == '__main__':
     parser.add_argument('--dyn_particles', type=int, default=5)
     parser.add_argument('--dyn_training_steps', type=int, default=40_000)
     parser.add_argument('--dyn_weight_decay', type=float, default=0)
-    parser.add_argument('--dyn_train_share', type=float, default=1.0)
+    parser.add_argument('--dyn_train_share', type=float, default=0.8)
     parser.add_argument('--dyn_type', type=str, default='DeterministicEnsemble')
     parser.add_argument('--logging_mode_wandb', type=int, default=2)
     args = parser.parse_args()
