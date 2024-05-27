@@ -27,8 +27,8 @@ def fitSingleStateTikhonov(t, x, regtype, lambda_, init_offset=0):
     """
     n = t.shape[0]
     x = x - init_offset
-    dt = (t[-1] - t[0]) / n
-    
+    dt = (t[-1] - t[0]) / (n-1)
+
     # Calculate the derivative by solving the least squares problem
     A = jnp.tri(n, n, -1) * dt
     if regtype == 'none':

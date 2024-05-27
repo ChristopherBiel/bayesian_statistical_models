@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import jax.numpy as jnp
 import chex
 from bsm.utils.normalization import Data
-from data_handling.data_handling import split_dataset
+from data_functions.data_handling import split_dataset
 
 def plot_derivative_data(t: chex.Array,
                          x: chex.Array,

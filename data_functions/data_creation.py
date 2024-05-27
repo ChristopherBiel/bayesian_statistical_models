@@ -5,7 +5,7 @@ import chex
 
 from systems.pendulum_system import PendulumSystem
 from bsm.utils.normalization import Data
-from data_handling.icem_optimizer import powerlaw_psd_gaussian
+from data_functions.icem_optimizer import powerlaw_psd_gaussian
 
 def example_function(t: chex.Array):
     x = jnp.concatenate([jnp.sin(t) * jnp.cos(0.2*t),
