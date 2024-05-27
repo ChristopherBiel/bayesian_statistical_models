@@ -47,10 +47,10 @@ def analyse_data(t, x, u, x_dot):
     # Integrate the x_dot
     dt = (t[0,-1,0] - t[0,0,0]) / (t.shape[1]-1)
     print(f"dt = {dt}")
-    def integrate(dot, dt):
-        return jnp.cumsum(dot*dt, axis=0)
+    def integrate(dot, dt, offset):
+        return jnp.cumsum(dot*dt, axis=0) + offset
          
-    x_integrated = vmap(integrate, in_axes=(0, None))(x_dot, dt)
+    x_integrated = vmap(integrate, in_axes=(0, None, 0))(x_dot, dt, x[:,0,:])
     
     def mse(a, b):
         return jnp.mean((a - b) ** 2, axis=0)
@@ -77,11 +77,12 @@ if __name__ == "__main__":
 
     print(f"True state 1: {x[0,:,0]}")
     print(f"Integrated state 1: {x_integ[0,:,0]}")
-    plt.plot(t[:,:,0], x_integ[:,:,0], label="Integrated state 1")
-    plt.plot(t[:,:,0], x_integ[:,:,1], label="Integrated state 2")
-    plt.plot(t[:,:,0], x[:,:,0], label="True state 1")
-    plt.plot(t[:,:,0], x[:,:,1], label="True state 2")
+    plt.plot(t.reshape(-1), x_integ[:,:,0].reshape(-1), label="Integrated state 1")
+    plt.plot(t.reshape(-1), x_integ[:,:,1].reshape(-1), label="Integrated state 2")
+    plt.plot(t.reshape(-1), x[:,:,0].reshape(-1), label="True state 1")
+    plt.plot(t.reshape(-1), x[:,:,1].reshape(-1), label="True state 2")
     plt.title("Comparing the true state to an integration of the state derivative")
     plt.xlabel("Time [s]")
     plt.ylabel("States 1 and 2 [-]")
+    plt.legend()
     plt.show()
