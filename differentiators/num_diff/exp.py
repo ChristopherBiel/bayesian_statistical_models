@@ -23,10 +23,12 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                noise_level: float = None,
                diff_regtype: str = 'first',
                diff_lambda: float = 0.1,
-               dyn_features: list = [128, 128],
+               dyn_feature_size: int = 128,
+               dyn_hidden_layers: int = 2,
                dyn_particles: int = 10,
                dyn_training_steps: int = 1000,
                dyn_weight_decay: float = 1e-4,
+               dyn_train_share: float = 0.8,
                dyn_type: str = 'DeterministicEnsemble',
                logging_mode_wandb: int = 0,
                x_src: str = 'smoother'):
@@ -44,10 +46,12 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                   noise_level=noise_level,
                   diff_regtype=diff_regtype,
                   diff_lambda=diff_lambda,
-                  dyn_features=dyn_features,
+                  dyn_feature_size=dyn_feature_size,
+                  dyn_hidden_layers=dyn_hidden_layers,
                   dyn_particles=dyn_particles,
                   dyn_training_steps=dyn_training_steps,
                   dyn_weight_decay=dyn_weight_decay,
+                  dyn_train_share=dyn_train_share,
                   dyn_type=dyn_type,
                   logging_mode_wandb=logging_mode_wandb,
                   x_src=x_src)
@@ -116,6 +120,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
         data_std = noise_level * jnp.ones(shape=(state_dim,))
 
     dyn_data = Data(inputs=inputs, outputs=outputs)
+    dyn_features = [dyn_feature_size] * dyn_hidden_layers
     if dyn_type == 'DeterministicEnsemble':
         dyn_model = BNNStatisticalModel(input_dim=state_dim+control_dim,
                                         output_dim=state_dim,
@@ -125,9 +130,11 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=DeterministicEnsemble,
-                                        train_share=0.6,
+                                        train_share=dyn_train_share,
                                         num_training_steps=dyn_training_steps,
-                                        weight_decay=dyn_weight_decay
+                                        weight_decay=dyn_weight_decay,
+                                        return_best_model=True,
+                                        eval_frequency=1000,
                                         )
     elif dyn_type == 'ProbabilisticEnsemble':
         dyn_model = BNNStatisticalModel(input_dim=state_dim+control_dim,
@@ -138,9 +145,11 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=ProbabilisticEnsemble,
-                                        train_share=0.6,
+                                        train_share=dyn_train_share,
                                         num_training_steps=dyn_training_steps,
-                                        weight_decay=dyn_weight_decay
+                                        weight_decay=dyn_weight_decay,
+                                        return_best_model=True,
+                                        eval_frequency=1000,
                                         )
     elif dyn_type == 'DeterministicFSVGDEnsemble':
         dyn_model = BNNStatisticalModel(input_dim=state_dim+control_dim,
@@ -151,9 +160,11 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=DeterministicFSVGDEnsemble,
-                                        train_share=0.6,
+                                        train_share=dyn_train_share,
                                         num_training_steps=dyn_training_steps,
-                                        weight_decay=dyn_weight_decay
+                                        weight_decay=dyn_weight_decay,
+                                        return_best_model=True,
+                                        eval_frequency=1000,
                                         )
     elif dyn_type == 'ProbabilisticFSVGDEnsemble':
         dyn_model = BNNStatisticalModel(input_dim=state_dim+control_dim,
@@ -164,9 +175,11 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                         num_particles=dyn_particles,
                                         features=dyn_features,
                                         bnn_type=ProbabilisticFSVGDEnsemble,
-                                        train_share=0.6,
+                                        train_share=dyn_train_share,
                                         num_training_steps=dyn_training_steps,
-                                        weight_decay=dyn_weight_decay
+                                        weight_decay=dyn_weight_decay,
+                                        return_best_model=True,
+                                        eval_frequency=1000,
                                         )
     
     dyn_model_state = dyn_model.init(key)
@@ -177,7 +190,6 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     if logging_mode_wandb > 0:
         fig = plot_derivative_data(t=t.reshape(-1, 1),
                                    x=x.reshape(-1, state_dim),
-                                   x_est=pred_x.reshape(-1, state_dim),
                                    x_dot_true=x_dot.reshape(-1, state_dim),
                                    x_dot_est = dyn_preds.mean,
                                    x_dot_est_std=dyn_preds.epistemic_std,
@@ -198,10 +210,12 @@ def main(args):
                noise_level=args.noise_level,
                diff_regtype=args.diff_regtype,
                diff_lambda=args.diff_lambda,
-               dyn_features=args.dyn_features,
+               dyn_feature_size=args.dyn_feature_size,
+               dyn_hidden_layers=args.dyn_hidden_layers,
                dyn_particles=args.dyn_particles,
                dyn_training_steps=args.dyn_training_steps,
                dyn_weight_decay=args.dyn_weight_decay,
+               dyn_train_share=args.dyn_train_share,
                dyn_type=args.dyn_type,
                logging_mode_wandb=args.logging_mode_wandb,
                x_src=args.x_src)
@@ -215,12 +229,14 @@ if __name__ == '__main__':
     parser.add_argument('--sample_points', type=int, default=64)
     parser.add_argument('--diff_regtype', type=str, default='none')
     parser.add_argument('--diff_lambda', type=float, default=0.001)
-    parser.add_argument('--dyn_features', type=list, default=[128, 128])
-    parser.add_argument('--dyn_particles', type=int, default=10)
+    parser.add_argument('--dyn_feature_size', type=int, default=128)
+    parser.add_argument('--dyn_hidden_layers', type=int, default=2)
+    parser.add_argument('--dyn_particles', type=int, default=6)
     parser.add_argument('--dyn_training_steps', type=int, default=16000)
     parser.add_argument('--dyn_weight_decay', type=float, default=3e-4)
+    parser.add_argument('--dyn_train_share', type=float, default=0.8)
     parser.add_argument('--dyn_type', type=str, default='DeterministicFSVGDEnsemble')
-    parser.add_argument('--logging_mode_wandb', type=int, default=1)
+    parser.add_argument('--logging_mode_wandb', type=int, default=2)
     parser.add_argument('--x_src', type=str, default='data')
     args = parser.parse_args()
     main(args)
