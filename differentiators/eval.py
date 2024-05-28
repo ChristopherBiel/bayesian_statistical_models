@@ -31,7 +31,7 @@ def evaluate_dyn_model(dyn_model: BNNStatisticalModel,
 
     # Evaluate the model
     current_state = initial_state
-    current_state_std = jnp.zeros((state_dim))
+    current_state_std = jnp.ones((state_dim)) * 0.001
     t, x_true, x_dot_true = sample_pendulum_with_input(control_input, initial_state)
 
     x_est = jnp.zeros((num_points, state_dim))
@@ -41,7 +41,7 @@ def evaluate_dyn_model(dyn_model: BNNStatisticalModel,
 
     for k01 in range(num_points):
         x_est.at[k01, :].set(current_state)
-        x_est.at[k01, :].set(current_state_std)
+        x_est_std.at[k01, :].set(current_state_std)
         model_inputs = jnp.concatenate([current_state, control_input[k01,:]]).reshape(1,dyn_model.input_dim)
         dyn_prediction = dyn_model.predict_batch(model_inputs, dyn_model_state)
         x_dot_est.at[k01, :].set(dyn_prediction.mean.reshape(state_dim))
@@ -49,6 +49,9 @@ def evaluate_dyn_model(dyn_model: BNNStatisticalModel,
         if k01 < (num_points - 1):
             current_state += (t[k01+1] - t[k01]) * dyn_prediction.mean.reshape(state_dim)
             current_state_std += (t[k01+1] - t[k01]) * dyn_prediction.epistemic_std.reshape(state_dim)
+
+    print(f"Estimated x: {x_est}")
+
     if plot_data:
         import matplotlib.pyplot as plt
         plot_derivative_data(t, x_true, x_dot_true, x_dot_est, x_dot_est_std,
@@ -65,11 +68,19 @@ def evaluate_dyn_model(dyn_model: BNNStatisticalModel,
     
 if __name__ == "__main__":
     from differentiators.nn_smoother.exp import experiment
-    dyn_model, dyn_model_state = experiment(logging_mode_wandb=0,
+    # create a small model just to test everything
+    dyn_model, dyn_model_state = experiment(sample_points=32,
+                                            num_traj=3,
+                                            smoother_particles=5,
+                                            smoother_training_steps=1000,
+                                            dyn_feature_size=32,
+                                            dyn_training_steps=2000,
+                                            logging_mode_wandb=0,
                                             return_model_state=True)
     
     state_pred_mse = evaluate_dyn_model(dyn_model = dyn_model,
                                         dyn_model_state = dyn_model_state,
+                                        num_points=20,
                                         plot_data = True,
                                         return_performance=True,
                                         plot_annotation_source="DYN,SMOOTHER")
