@@ -25,7 +25,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                noise_level: float = None,
                num_traj_train: int = 12,
                dyn_feature_size: int = 128,
-               dyn_num_hidden_layers: int = 2,
+               dyn_hidden_layers: int = 2,
                dyn_particles: int = 10,
                dyn_training_steps: int = 1000,
                dyn_weight_decay: float = 1e-4,
@@ -45,7 +45,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                   noise_level=noise_level,
                   num_traj_train=num_traj_train,
                   dyn_feature_size=dyn_feature_size,
-                  dyn_num_hidden_layers=dyn_num_hidden_layers,
+                  dyn_hidden_layers=dyn_hidden_layers,
                   dyn_particles=dyn_particles,
                   dyn_training_steps=dyn_training_steps,
                   dyn_weight_decay=dyn_weight_decay,
@@ -93,7 +93,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
 
     print(f"Using new Data with input shape {dyn_data.inputs.shape} and output shape {dyn_data.outputs.shape}")
     # Change the features to the desired size
-    dyn_features = [dyn_feature_size] * dyn_num_hidden_layers
+    dyn_features = [dyn_feature_size] * dyn_hidden_layers
     if dyn_type == 'DeterministicEnsemble':
         dyn_model = BNNStatisticalModel(input_dim=state_dim + control_dim,
                                         output_dim=state_dim,
@@ -175,7 +175,7 @@ def main(args):
                num_traj_train=args.num_traj_train,
                noise_level=args.noise_level,
                dyn_feature_size=args.dyn_feature_size,
-               dyn_num_hidden_layers=args.dyn_num_hidden_layers,
+               dyn_hidden_layers=args.dyn_hidden_layers,
                dyn_particles=args.dyn_particles,
                dyn_training_steps=args.dyn_training_steps,
                dyn_weight_decay=args.dyn_weight_decay,
@@ -194,10 +194,10 @@ if __name__ == '__main__':
     parser.add_argument('--sample_points', type=int, default=64)
     parser.add_argument('--num_traj_train', type=int, default=3)
     parser.add_argument('--dyn_feature_size', type=int, default=64)
-    parser.add_argument('--dyn_num_hidden_layers', type=int, default=2)
+    parser.add_argument('--dyn_hidden_layers', type=int, default=2)
     parser.add_argument('--dyn_particles', type=int, default=5)
-    parser.add_argument('--dyn_training_steps', type=int, default=40_000)
-    parser.add_argument('--dyn_weight_decay', type=float, default=0)
+    parser.add_argument('--dyn_training_steps', type=int, default=16_000)
+    parser.add_argument('--dyn_weight_decay', type=float, default=1e-3)
     parser.add_argument('--dyn_train_share', type=float, default=0.8)
     parser.add_argument('--dyn_type', type=str, default='DeterministicEnsemble')
     parser.add_argument('--logging_mode_wandb', type=int, default=2)
