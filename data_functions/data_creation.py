@@ -53,6 +53,18 @@ def create_example_data(num_trajectories: int,
         x_dot = jnp.concatenate([x_dot, x_dot_traj], axis=0)
     return Data(inputs=t, outputs=x), Data(inputs=jnp.concatenate([t, x], axis=1), outputs=x_dot)
 
+def create_random_control_sequence(num_points: int,
+                                   key: jr.PRNGKey,
+                                   control_dim: int = 1,
+                                   col_noise_exponent: float = 3,
+                                   ) -> chex.Array:
+    if control_dim > 1:
+        action_keys = jr.split(key, control_dim)
+    else:
+        action_keys = key
+    v_apply = jax.vmap(powerlaw_psd_gaussian, in_axes=(None, None, 0), out_axes=1)
+    control_inputs = v_apply(col_noise_exponent, num_points, action_keys.reshape(-1,2))
+    return control_inputs
 
 def sample_random_pendulum_data(num_points: int,
                                 noise_level: chex.Array | float | None,
@@ -105,10 +117,6 @@ def sample_random_pendulum_data(num_points: int,
 
         x_dot = x_dot.at[:, i, :].set(x_dot_current)
 
-    # # Transform the derivative (which is theta_dot) to the state space (use chain rule)
-    # x_dot = jnp.concatenate([-1 * x[:, :, 1].reshape(num_trajectories, -1, 1) * x_dot,
-    #                          x[:, :, 0].reshape(num_trajectories, -1, 1) * x_dot], axis=2)
-
     if noise_level is not None:
         x = x + noise_level * jr.normal(key=key, shape=x.shape)
 
@@ -121,22 +129,26 @@ def sample_pendulum_with_input(control_input: chex.Array,
                                ) -> (chex.Array, chex.Array, chex.Array):
     chex.assert_shape(control_input, (None, 1))
     chex.assert_shape(initial_state, (3,))
+
     system = PendulumSystem()
     system_state = system.reset(jr.PRNGKey(0))
     system_state.x_next = initial_state
+
     num_points = control_input.shape[0]
     t = jnp.arange(num_points).reshape(-1, 1) * system_state.system_params.dynamics_params.dt
     assert t.shape == (num_points, 1)
-    x = jnp.zeros((num_points, 2))
-    x_dot = jnp.zeros((num_points, 1))
+    x = jnp.zeros((num_points, 3))
+    x_dot = jnp.zeros((num_points, 3))
     for i in range(num_points):
         system_state = system.step(system_state.x_next, control_input[i], system_state.system_params)
-        x = x.at[i, :].set(system_state.x_next[:2])
-        x_dot = x_dot.at[i, :].set(system_state.x_next[2])
-
-    # Transform the derivative (which is theta_dot) to the state space (use chain rule)
-    x_dot = jnp.concatenate([-1 * x[:, :, 1].reshape(num_trajectories, -1, 1) * x_dot,
-                             x[:, :, 0].reshape(num_trajectories, -1, 1) * x_dot], axis=2)
+        x = x.at[i, :].set(system_state.x_next)
+        x_compressed = system.dynamics.get_compressed_state(system_state.x_next)
+        x_dot_compressed = system.dynamics.ode(x_compressed, control_input[i],
+                                               system_state.system_params.dynamics_params)
+        x_dot_current = jnp.stack([-1 * system_state.x_next[1] * x_dot_compressed[0],
+                                  system_state.x_next[0] * x_dot_compressed[0],
+                                  x_dot_compressed[1]])
+        x_dot = x_dot.at[i, :].set(x_dot_current.reshape(3))
 
     if noise_level is not None:
         x = x + noise_level * jr.normal(key=jr.PRNGKey(0), shape=x.shape)
