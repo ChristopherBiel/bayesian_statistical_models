@@ -29,33 +29,40 @@ def evaluate_dyn_model(dyn_model: BNNStatisticalModel,
     control_input = create_random_control_sequence(num_points, key, control_dim, colored_noise_exponent)
     assert control_input.shape == (num_points, control_dim)
 
+    num_particles = dyn_model.model.num_particles
+
     # Evaluate the model
-    current_state = initial_state
-    current_state_std = jnp.ones((state_dim)) * 0.001
+    current_state = jnp.stack([initial_state] * num_particles, axis=0)
     t, x_true, x_dot_true = sample_pendulum_with_input(control_input, initial_state)
 
     x_est = jnp.zeros((num_points, state_dim))
     x_est_std = jnp.zeros((num_points, state_dim))
     x_dot_est = jnp.zeros((num_points, state_dim))
     x_dot_est_std = jnp.zeros((num_points, state_dim))
+    stacked_control = jnp.stack([control_input] * num_particles, axis=0)
 
     for k01 in range(num_points):
-        x_est = x_est.at[k01, :].set(current_state)
-        x_est_std = x_est_std.at[k01, :].set(current_state_std)
-        model_inputs = jnp.concatenate([current_state, control_input[k01,:]]).reshape(1,dyn_model.input_dim)
-        dyn_prediction = dyn_model.predict_batch(model_inputs, dyn_model_state)
-        x_dot_est = x_dot_est.at[k01, :].set(dyn_prediction.mean.reshape(state_dim))
-        x_dot_est_std = x_dot_est_std.at[k01, :].set(dyn_prediction.epistemic_std.reshape(state_dim))
+        x_est = x_est.at[k01, :].set(current_state.mean(axis=0))
+        x_est_std = x_est_std.at[k01, :].set(current_state.std(axis=0))
+
+        model_inputs = jnp.concatenate([current_state, stacked_control[:,k01,:]], axis=1).reshape(num_particles,dyn_model.input_dim)
+        
+        v_apply = vmap(dyn_model.model.apply_eval, in_axes=(0, 0, None))
+        derivatives, _ = v_apply(dyn_model_state.model_state.vmapped_params,
+                                 model_inputs,
+                                 dyn_model_state.model_state.data_stats)
+
+        x_dot_est = x_dot_est.at[k01, :].set(derivatives.mean(axis=0).reshape(state_dim))
+        x_dot_est_std = x_dot_est_std.at[k01, :].set(derivatives.std(axis=0).reshape(state_dim))
+        # Propagate the particle states
         if k01 < (num_points - 1):
-            current_state += (t[k01+1] - t[k01]) * dyn_prediction.mean.reshape(state_dim)
-            current_state_std += (t[k01+1] - t[k01]) * dyn_prediction.epistemic_std.reshape(state_dim)
+            current_state += (t[k01+1] - t[k01]) * derivatives
 
     if plot_data:
-        import matplotlib.pyplot as plt
         derivative_pred_plot = plot_derivative_data(t, x_true, x_dot_true, x_dot_est, x_dot_est_std,
-                             beta = dyn_prediction.statistical_model_state.beta)
+                             beta = dyn_model_state.beta)
         state_pred_plot = plot_prediction_data(t, x_true, x_est, x_est_std, source=plot_annotation_source,
-                             beta = dyn_prediction.statistical_model_state.beta)
+                             beta = dyn_model_state.beta)
 
     if return_performance:
         def mse(x, x_pred):
@@ -70,6 +77,7 @@ def evaluate_dyn_model(dyn_model: BNNStatisticalModel,
     
 if __name__ == "__main__":
     from differentiators.nn_smoother.exp import experiment
+    import matplotlib.pyplot as plt
     # create a small model just to test everything
     dyn_model, dyn_model_state = experiment(sample_points=32,
                                             num_traj=3,
@@ -80,11 +88,13 @@ if __name__ == "__main__":
                                             logging_mode_wandb=0,
                                             return_model_state=True)
     
-    state_pred_mse = evaluate_dyn_model(dyn_model = dyn_model,
+    state_pred_mse, derivative_pred_plot, state_pred_plot = evaluate_dyn_model(dyn_model = dyn_model,
                                         dyn_model_state = dyn_model_state,
                                         num_points=20,
                                         plot_data = True,
                                         return_performance=True,
                                         plot_annotation_source="DYN,SMOOTHER")
     
+    plt.show()
+
     print(f"Prediction error for the model per state is {state_pred_mse}")

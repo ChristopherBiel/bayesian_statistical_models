@@ -15,6 +15,7 @@ from data_functions.data_creation import create_example_data, example_function_d
 from data_functions.data_creation import sample_pendulum_with_input, sample_random_pendulum_data
 from data_functions.data_handling import split_dataset
 from data_functions.data_output import plot_derivative_data, plot_data
+from differentiators.eval import evaluate_dyn_model
 
 def experiment(project_name: str = 'LearnDynamicsModel',
                seed: int=0,
@@ -36,7 +37,7 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     # Input checks
     assert num_traj > 0
     assert sample_points > 0
-    assert diff_regtype in ['none', 'first', 'second'], f"Unknown differentiation regularisation type: {diff_regtype}"
+    assert diff_regtype in ['zero', 'first', 'second'], f"Unknown differentiation regularisation type: {diff_regtype}"
     assert dyn_type in ['DeterministicEnsemble', 'ProbabilisticEnsemble', 'DeterministicFSVGDEnsemble',
                         'ProbabilisticFSVGDEnsemble'], f"Unknown dyanmics BNN type: {dyn_type}"
     
@@ -81,8 +82,6 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     else:
         logging_smoother_wandb = False
         logging_dyn_wandb = False
-
-    print(f"Data shapes: {t.shape} time, {x.shape} x")
 
     # Calculate the derivative
     v_apply = vmap(fitMultiStateTikhonov, in_axes=(0, 0, None, None, 0))
@@ -201,6 +200,19 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                    )
         wandb.log({'dynamics': wandb.Image(fig)})
 
+    # Evaluate the dynamics model:
+    state_pred_mse, derivative_pred_plot, state_pred_plot = evaluate_dyn_model(dyn_model=dyn_model,
+                                                         dyn_model_state=dyn_model_state,
+                                                         num_points=32,
+                                                         plot_data=True,
+                                                         return_performance=True,
+                                                         plot_annotation_source="DYN,NUM-DIFF")
+
+    if logging_mode_wandb > 0:
+        wandb.log({'derivative_prediction': wandb.Image(derivative_pred_plot)})
+        wandb.log({'state_prediction': wandb.Image(state_pred_plot)})
+        wandb.log({'state_prediction_mse': state_pred_mse})
+
 
 def main(args):
     experiment(project_name=args.project_name,
@@ -227,7 +239,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_traj', type=int, default=12)
     parser.add_argument('--noise_level', type=float, default=None)
     parser.add_argument('--sample_points', type=int, default=64)
-    parser.add_argument('--diff_regtype', type=str, default='none')
+    parser.add_argument('--diff_regtype', type=str, default='first')
     parser.add_argument('--diff_lambda', type=float, default=0.001)
     parser.add_argument('--dyn_feature_size', type=int, default=128)
     parser.add_argument('--dyn_hidden_layers', type=int, default=2)
@@ -237,6 +249,6 @@ if __name__ == '__main__':
     parser.add_argument('--dyn_train_share', type=float, default=0.8)
     parser.add_argument('--dyn_type', type=str, default='DeterministicFSVGDEnsemble')
     parser.add_argument('--logging_mode_wandb', type=int, default=2)
-    parser.add_argument('--x_src', type=str, default='data')
+    parser.add_argument('--x_src', type=str, default='smoother')
     args = parser.parse_args()
     main(args)

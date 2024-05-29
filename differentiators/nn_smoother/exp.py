@@ -303,7 +303,8 @@ def experiment(project_name: str = 'LearnDynamicsModel',
     # Evaluate the dynamics model:
     state_pred_mse, derivative_pred_plot, state_pred_plot = evaluate_dyn_model(dyn_model=dyn_model,
                                                          dyn_model_state=dyn_model_state,
-                                                         num_points=32,
+                                                         num_points=64,
+                                                         seed = 1,
                                                          plot_data=True,
                                                          return_performance=True,
                                                          plot_annotation_source="DYN,SMOOTHER")
@@ -353,7 +354,7 @@ if __name__ == '__main__':
     parser.add_argument('--smoother_particles', type=int, default=12)
     parser.add_argument('--dyn_particles', type=int, default=6)
     parser.add_argument('--smoother_training_steps', type=int, default=8000)
-    parser.add_argument('--dyn_training_steps', type=int, default=24000)
+    parser.add_argument('--dyn_training_steps', type=int, default=16000)
     parser.add_argument('--smoother_weight_decay', type=float, default=3e-4)
     parser.add_argument('--dyn_weight_decay', type=float, default=3e-4)
     parser.add_argument('--smoother_train_share', type=float, default=0.8)
@@ -361,6 +362,6 @@ if __name__ == '__main__':
     parser.add_argument('--smoother_type', type=str, default='DeterministicEnsemble')
     parser.add_argument('--dyn_type', type=str, default='DeterministicFSVGDEnsemble')
     parser.add_argument('--logging_mode_wandb', type=int, default=2)
-    parser.add_argument('--x_src', type=str, default='data')
+    parser.add_argument('--x_src', type=str, default='smoother')
     args = parser.parse_args()
     main(args)
