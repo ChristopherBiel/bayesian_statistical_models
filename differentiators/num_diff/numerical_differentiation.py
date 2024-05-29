@@ -21,7 +21,7 @@ def fitSingleStateTikhonov(t, x, regtype, lambda_, init_offset=0):
     """Fit to data with Tikhonov regularization
     t: (m, 1) - m different samples of data
     x: (m, 1)
-    regtype: 'none', 'first', 'second'
+    regtype: 'zero', 'first', 'second'
     lambda_: Regularization parameter
     init_offset: true function value at the lower bound
     """
@@ -31,7 +31,7 @@ def fitSingleStateTikhonov(t, x, regtype, lambda_, init_offset=0):
 
     # Calculate the derivative by solving the least squares problem
     A = jnp.tri(n, n, -1) * dt
-    if regtype == 'none':
+    if regtype == 'zero':
         D = jnp.eye(n)
     elif regtype == 'first':
         D1 = jnp.zeros((n - 1, n))# Set the right hand diagonal to 1
