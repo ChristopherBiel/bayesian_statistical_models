@@ -40,31 +40,33 @@ def evaluate_dyn_model(dyn_model: BNNStatisticalModel,
     x_dot_est_std = jnp.zeros((num_points, state_dim))
 
     for k01 in range(num_points):
-        x_est.at[k01, :].set(current_state)
-        x_est_std.at[k01, :].set(current_state_std)
+        x_est = x_est.at[k01, :].set(current_state)
+        x_est_std = x_est_std.at[k01, :].set(current_state_std)
         model_inputs = jnp.concatenate([current_state, control_input[k01,:]]).reshape(1,dyn_model.input_dim)
         dyn_prediction = dyn_model.predict_batch(model_inputs, dyn_model_state)
-        x_dot_est.at[k01, :].set(dyn_prediction.mean.reshape(state_dim))
-        x_dot_est_std.at[k01, :].set(dyn_prediction.epistemic_std.reshape(state_dim))
+        x_dot_est = x_dot_est.at[k01, :].set(dyn_prediction.mean.reshape(state_dim))
+        x_dot_est_std = x_dot_est_std.at[k01, :].set(dyn_prediction.epistemic_std.reshape(state_dim))
         if k01 < (num_points - 1):
             current_state += (t[k01+1] - t[k01]) * dyn_prediction.mean.reshape(state_dim)
             current_state_std += (t[k01+1] - t[k01]) * dyn_prediction.epistemic_std.reshape(state_dim)
 
-    print(f"Estimated x: {x_est}")
-
     if plot_data:
         import matplotlib.pyplot as plt
-        plot_derivative_data(t, x_true, x_dot_true, x_dot_est, x_dot_est_std,
+        derivative_pred_plot = plot_derivative_data(t, x_true, x_dot_true, x_dot_est, x_dot_est_std,
                              beta = dyn_prediction.statistical_model_state.beta)
-        plot_prediction_data(t, x_true, x_est, x_est_std, source=plot_annotation_source,
+        state_pred_plot = plot_prediction_data(t, x_true, x_est, x_est_std, source=plot_annotation_source,
                              beta = dyn_prediction.statistical_model_state.beta)
-        plt.show()
 
     if return_performance:
         def mse(x, x_pred):
             return jnp.power((x-x_pred),2).mean()
         state_pred_mse = vmap(mse, in_axes=(1, 1))(x_true, x_est)
-        return state_pred_mse
+        if plot_data:
+            return state_pred_mse, derivative_pred_plot, state_pred_plot
+        else:
+            return state_pred_mse
+    elif plot_data:
+        return derivative_pred_plot, state_pred_plot
     
 if __name__ == "__main__":
     from differentiators.nn_smoother.exp import experiment

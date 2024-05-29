@@ -14,6 +14,7 @@ from data_functions.data_creation import create_example_data, example_function_d
 from data_functions.data_creation import sample_pendulum_with_input, sample_random_pendulum_data
 from data_functions.data_handling import split_dataset
 from data_functions.data_output import plot_derivative_data, plot_data
+from differentiators.eval import evaluate_dyn_model
 
 def experiment(project_name: str = 'LearnDynamicsModel',
                seed: int = 0,
@@ -299,6 +300,19 @@ def experiment(project_name: str = 'LearnDynamicsModel',
                                    )
         wandb.log({'dynamics': wandb.Image(fig)})
 
+    # Evaluate the dynamics model:
+    state_pred_mse, derivative_pred_plot, state_pred_plot = evaluate_dyn_model(dyn_model=dyn_model,
+                                                         dyn_model_state=dyn_model_state,
+                                                         num_points=32,
+                                                         plot_data=True,
+                                                         return_performance=True,
+                                                         plot_annotation_source="DYN,SMOOTHER")
+
+    if logging_mode_wandb > 0:
+        wandb.log({'derivative_prediction': wandb.Image(derivative_pred_plot)})
+        wandb.log({'state_prediction': wandb.Image(state_pred_plot)})
+        wandb.log({'state_prediction_mse': state_pred_mse})
+
     if return_model_state:
         return dyn_model, dyn_model_state
 
@@ -339,7 +353,7 @@ if __name__ == '__main__':
     parser.add_argument('--smoother_particles', type=int, default=12)
     parser.add_argument('--dyn_particles', type=int, default=6)
     parser.add_argument('--smoother_training_steps', type=int, default=8000)
-    parser.add_argument('--dyn_training_steps', type=int, default=16000)
+    parser.add_argument('--dyn_training_steps', type=int, default=24000)
     parser.add_argument('--smoother_weight_decay', type=float, default=3e-4)
     parser.add_argument('--dyn_weight_decay', type=float, default=3e-4)
     parser.add_argument('--smoother_train_share', type=float, default=0.8)
