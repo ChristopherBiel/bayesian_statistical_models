@@ -89,15 +89,23 @@ def experiment(project_name: str = 'LearnDynamicsModel',
 
     # Plot the results for the first three trajectories
     if logging_mode_wandb > 0:
-        fig, axes = plt.subplots(state_dim, min(3, num_traj), figsize=(16, 9))
-        for i in range(min(3, num_traj)):
+        fig, axes = plt.subplots(state_dim, min(2, num_traj), figsize=(16, 9))
+        for i in range(min(2, num_traj)):
             for j in range(state_dim):
-                axes[j][i].plot(t[i,:], x[i,:,j], label=r'x')
-                axes[j][i].plot(t[i,:], pred_x[i,:,j], label=r'$x_{SMOOTHER}$')
-                axes[j][i].plot(t[i,:], pred_x_dot[i,:,j], label=r'$\dot{x}_{SMOOTHER}$')
-                axes[j][i].plot(t[i,:], x_dot[i,:,j], label=r'$\dot{x}_{TRUE}$')
+                axes[j][i].plot(t[i,:], x[i,:,j], color=[0.2, 0.8, 0], label=r'x')
+                axes[j][i].plot(t[i,:], x_dot[i,:,j], color='green', label=r'$\dot{x}_{TRUE}$')
+                axes[j][i].plot(t[i,:], pred_x[i,:,j], color='orange', label=r'$x_{SMOOTHER}$')
+                axes[j][i].plot(t[i,:], pred_x_dot[i,:,j], color='red', label=r'$\dot{x}_{SMOOTHER}$')
                 axes[j][i].set_title(f"Trajectory {i} - x{j}")
                 axes[j][i].grid(True, which='both')
+            axes[0][i].set_title(r'Trajectory %s'%(str(i)))
+            axes[-1][i].set_xlabel(r'Time [s]')
+            axes[-1][i].legend()
+            axes[-1][i].legend()
+        # Add labels, legends and titles
+        axes[0][0].set_ylabel(r'$cos(\theta)$')
+        axes[1][0].set_ylabel(r'$sin(\theta)$')
+        axes[2][0].set_ylabel(r'$\omega$')
         plt.legend()
         plt.tight_layout()
         wandb.log({'smoother': wandb.Image(plt)})
@@ -237,14 +245,14 @@ if __name__ == '__main__':
     parser.add_argument('--project_name', type=str, default='LearnDynamicsModel')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--num_traj', type=int, default=12)
-    parser.add_argument('--noise_level', type=float, default=None)
+    parser.add_argument('--noise_level', type=float, default=0.01)
     parser.add_argument('--sample_points', type=int, default=64)
-    parser.add_argument('--diff_regtype', type=str, default='first')
-    parser.add_argument('--diff_lambda', type=float, default=0.001)
+    parser.add_argument('--diff_regtype', type=str, default='second')
+    parser.add_argument('--diff_lambda', type=float, default=0.002)
     parser.add_argument('--dyn_feature_size', type=int, default=128)
     parser.add_argument('--dyn_hidden_layers', type=int, default=2)
     parser.add_argument('--dyn_particles', type=int, default=6)
-    parser.add_argument('--dyn_training_steps', type=int, default=16000)
+    parser.add_argument('--dyn_training_steps', type=int, default=32000)
     parser.add_argument('--dyn_weight_decay', type=float, default=3e-4)
     parser.add_argument('--dyn_train_share', type=float, default=0.8)
     parser.add_argument('--dyn_type', type=str, default='DeterministicFSVGDEnsemble')
