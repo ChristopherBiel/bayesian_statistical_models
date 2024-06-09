@@ -14,6 +14,7 @@ def plot_derivative_data(t: chex.Array,
                          x_dot_smoother: chex.Array = None,
                          x_dot_smoother_std: chex.Array = None,
                          num_trajectories_to_plot: int = 1,
+                         state_labels: str = [r'$cos(\theta)$', r'$sin(\theta)$', r'$\omega$'],
                          ) -> plt.figure:
     """Either pass all states and values with three dimensions (num_traj, num_samples, num_states)
     OR pass all states and values with only two dimensions (num_traj*num_samples, num_states)"""
@@ -37,41 +38,45 @@ def plot_derivative_data(t: chex.Array,
     for k01 in range(state_dim):
         if num_trajectories_to_plot > 1:
             for k02 in range(num_trajectories_to_plot):
-                axes[k01][k02].plot(t[k02,:,0].reshape(-1), x_dot_est[k02,:,k01], label=r'$\dot{x}_{%s}$'%(source))
+                axes[k01][k02].plot(t[k02,:,0].reshape(-1), x_dot_est[k02,:,k01], color='blue', label=r'$\dot{x}_{%s}$'%(source))
                 axes[k01][k02].fill_between(t[0,:,0].reshape(-1),
                                             (x_dot_est[k02,:,k01] - beta[k01] * x_dot_est_std[k02,:,k01]).reshape(-1),
                                             (x_dot_est[k02,:,k01] + beta[k01] * x_dot_est_std[k02,:,k01]).reshape(-1),
                                             label=r'$2\sigma$', alpha=0.3, color='blue')
                 if x_dot_smoother is not None:
-                    axes[k01][k02].plot(t[k02,:,0].reshape(-1), x_dot_smoother[k02,:,k01], label=r'$\dot{x}_{SMOOTHER}$')
+                    axes[k01][k02].plot(t[k02,:,0].reshape(-1), x_dot_smoother[k02,:,k01], color='red', label=r'$\dot{x}_{SMOOTHER}$')
                 if x_dot_smoother_std is not None:
                     axes[k01][k02].fill_between(t[0,:,0].reshape(-1),
                                                 (x_dot_smoother[k02,:,k01] - beta[k01] * x_dot_smoother_std[k02,:,k01]).reshape(-1),
                                                 (x_dot_smoother[k02,:,k01] + beta[k01] * x_dot_smoother_std[k02,:,k01]).reshape(-1),
-                                                label=r'$2\sigma$', alpha=0.3, color='blue')
-                axes[k01][k02].plot(t[0,:,0].reshape(-1), x_dot_true[k02,:,k01], label=r'$\dot{x}_{TRUE}$')
-                axes[k01][k02].set_ylabel(r'state $x_{%s}$' %(str(k01)))
+                                                label=r'$2\sigma$', alpha=0.3, color='red')
+                axes[k01][k02].plot(t[0,:,0].reshape(-1), x_dot_true[k02,:,k01], color='green', label=r'$\dot{x}_{TRUE}$')
+                axes[k01][k02].set_ylabel(state_labels[k01])
                 axes[k01][k02].set_xlabel(r'Time [s]')
                 axes[k01][k02].set_title(r'Trajectory %s'%(str(k02)))
                 axes[k01][k02].grid(True, which='both')
         else:
-            axes[k01].plot(t[0,:,0].reshape(-1), x_dot_est[0,:,k01], label=r'$\dot{x}_{%s}$'%(source))
+            axes[k01].plot(t[0,:,0].reshape(-1), x_dot_est[0,:,k01], color='blue', label=r'$\dot{x}_{%s}$'%(source))
             axes[k01].fill_between(t[0,:,0].reshape(-1),
                                     (x_dot_est[0,:,k01] - beta[k01] * x_dot_est_std[0,:,k01]).reshape(-1),
                                     (x_dot_est[0,:,k01] + beta[k01] * x_dot_est_std[0,:,k01]).reshape(-1),
                                     label=r'$2\sigma$', alpha=0.3, color='blue')
             if x_dot_smoother is not None:
-                axes[k01].plot(t[0,:,0].reshape(-1), x_dot_smoother[0,:,k01], label=r'$\dot{x}_{SMOOTHER}$')
+                axes[k01].plot(t[0,:,0].reshape(-1), x_dot_smoother[0,:,k01], color='red', label=r'$\dot{x}_{SMOOTHER}$')
             if x_dot_smoother_std is not None:
                 axes[k01].fill_between(t[0,:,0].reshape(-1),
                                         (x_dot_smoother[0,:,k01] - beta[k01] * x_dot_smoother_std[0,:,k01]).reshape(-1),
                                         (x_dot_smoother[0,:,k01] + beta[k01] * x_dot_smoother_std[0,:,k01]).reshape(-1),
-                                        label=r'$2\sigma$', alpha=0.3, color='blue')
-            axes[k01].plot(t[0,:,0].reshape(-1), x_dot_true[0,:,k01], label=r'$\dot{x}_{TRUE}$')
-            axes[k01].set_ylabel(r'state $x_{%s}$' %(str(k01)))
+                                        label=r'$2\sigma$', alpha=0.3, color='red')
+            axes[k01].plot(t[0,:,0].reshape(-1), x_dot_true[0,:,k01], color='green', label=r'$\dot{x}_{TRUE}$')
+            axes[k01].set_ylabel(state_labels[k01])
             axes[k01].set_xlabel(r'Time [s]')
             axes[k01].grid(True, which='both')
-    plt.legend()
+    if num_trajectories_to_plot > 1:
+        axes[-1][0].legend()
+        axes[-1][1].legend()
+    else:
+        axes[-1].legend()
     fig.tight_layout()
     return fig
 
@@ -81,6 +86,7 @@ def plot_prediction_data(t: chex.Array,
                          x_est_std: chex.Array,
                          beta: chex.Array,
                          source: str = "",
+                         state_labels: str = [r'$cos(\theta)$', r'$sin(\theta)$', r'$\omega$'],
                          ) -> plt.figure:
     """Either pass all states and values with three dimensions (num_traj, num_samples, num_states)
     OR pass all states and values with only two dimensions (num_traj*num_samples, num_states)"""
@@ -96,7 +102,7 @@ def plot_prediction_data(t: chex.Array,
                                 (x_est[:,k01] - beta[k01] * x_est_std[:,k01]).reshape(-1),
                                 (x_est[:,k01] + beta[k01] * x_est_std[:,k01]).reshape(-1),
                                 label=r'$2\sigma$', alpha=0.3, color='blue')
-        axes[k01].set_ylabel(r'state $x_{%s}$' %(str(k01)))
+        axes[k01].set_ylabel(state_labels[k01])
         axes[k01].set_xlabel(r'Time [s]')
         axes[k01].grid(True, which='both')
     plt.legend()
@@ -108,7 +114,8 @@ def plot_data(t: chex.Array,
               x: chex.Array,
               u: chex.Array = None,
               x_dot: chex.Array = None,
-              title: str = '') -> plt.figure:
+              title: str = '',
+              state_labels: str = [r'$cos(\theta)$', r'$sin(\theta)$', r'$\omega$']) -> plt.figure:
     num_dim = x.ndim # If ndim = 3, there are different trajectories to plot
     if num_dim == 3:
         t1 = t[0,:,:]
@@ -127,22 +134,22 @@ def plot_data(t: chex.Array,
         for k01 in range(input_dim):
             axes.append(plt.subplot2grid((3*input_dim,2),(3*k01,1), rowspan=3))
         for k01 in range(state_dim):
-            axes[0].plot(t1, x1[:,k01], label=r'$x_{%s}$'%(str(k01)))
+            axes[0].plot(t1, x1[:,k01], label=state_labels[k01])
             axes[2].plot(t1, x_dot1[:,k01], label=r'$\dot{x}_{%s}$'%(str(k01)))
         axes[0].set_xlabel('Time')
         axes[0].set_ylabel('States')
         axes[0].set_title('One trajectory of the sampled data')
-        plt.legend()
+        axes[0].legend()
         axes[0].grid(True, which='both')
         for k01 in range(input_dim):
             axes[1].plot(t1, u1[:,k01], label=r'$u_{%s}$'%(str(k01)))
         axes[1].set_xlabel('Time')
         axes[1].set_ylabel('Inputs')
-        plt.legend()
+        axes[1].legend()
         axes[1].grid(True, which='both')
         axes[2].set_xlabel('Time')
         axes[2].set_ylabel('State Derivatives')
-        plt.legend()
+        axes[2].legend()
         axes[2].grid(True, which='both')
         for k01 in range(input_dim):
             for k02 in range(u.shape[0]):
