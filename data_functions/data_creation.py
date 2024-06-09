@@ -118,7 +118,10 @@ def sample_random_pendulum_data(num_points: int,
         x_dot = x_dot.at[:, i, :].set(x_dot_current)
 
     if noise_level is not None:
-        x = x + noise_level * jr.normal(key=key, shape=x.shape)
+        # Scale the noise level to the range of the data
+        noise_level = noise_level * (jnp.max(x, axis=(0, 1)) - jnp.min(x, axis=(0, 1)) + 0.01)
+        print(f"Noise level scaled to the state range: {noise_level}")
+        x = x + noise_level * jr.normal(key=jr.PRNGKey(0), shape=x.shape)
 
     return t, x, u, x_dot
 
