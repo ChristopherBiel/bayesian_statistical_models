@@ -93,7 +93,7 @@ class ProbabilisticFSVGDEnsemble(ProbabilisticEnsemble):
         def neg_log_likelihood(predictions, output):
             mu, sig = jnp.split(predictions, 2, axis=-1)
             sig = nn.softplus(sig)
-            sig = jnp.clip(sig, 0, self.sig_max) + self.sig_min
+            sig = jnp.clip(sig, self.sig_min, self.sig_max)
             return self._neg_log_posterior(mu, sig, output), mu
 
         (negative_log_likelihood, mu), grad_post = jax.value_and_grad(neg_log_likelihood, has_aux=True) \
@@ -127,7 +127,8 @@ if __name__ == '__main__':
 
     num_particles = 10
     model = ProbabilisticFSVGDEnsemble(input_dim=input_dim, output_dim=output_dim, features=[64, 64, 64],
-                                       num_particles=num_particles, output_stds=data_std, logging_wandb=logging_wandb)
+                                       num_particles=num_particles, eval_frequency=500, output_stds=data_std,
+                                       logging_wandb=logging_wandb)
     model_state = model.init(model.key)
     start_time = time.time()
     print('Starting with training')
@@ -137,7 +138,7 @@ if __name__ == '__main__':
             group='test group',
         )
 
-    model_state = model.fit_model(data=data, num_epochs=1000, model_state=model_state)
+    model_state = model.fit_model(data=data, num_training_steps=1000, model_state=model_state)
     print(f'Training time: {time.time() - start_time:.2f} seconds')
 
     test_xs = jnp.linspace(-3, 13, 1000).reshape(-1, 1)

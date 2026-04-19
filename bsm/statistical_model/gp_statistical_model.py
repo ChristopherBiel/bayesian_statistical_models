@@ -6,34 +6,52 @@ from jax import vmap
 
 from bsm.bayesian_regression.gaussian_processes.gaussian_processes import GPModelState, GaussianProcess
 from bsm.statistical_model.abstract_statistical_model import StatisticalModel
-from bsm.utils.normalization import Data
+from bsm.utils.normalization import Data, DataStats
 from bsm.utils.type_aliases import StatisticalModelState
+from typing import Union
 
 
 class GPStatisticalModel(StatisticalModel[GPModelState]):
     def __init__(self,
                  input_dim: int,
                  output_dim: int,
-                 f_norm_bound: float = 1.0,
+                 f_norm_bound: float | chex.Array = 1.0,
                  delta: float = 0.1,
-                 num_training_steps: int = 1000,
+                 num_training_steps: Union[int, optax.Schedule] = 1000,
                  beta: chex.Array | optax.Schedule | None = None,
                  normalize: bool = True,
+                 fixed_kernel_params: bool = False,
+                 normalization_stats: DataStats | None = None,
                  *args, **kwargs
                  ):
         self.normalize = normalize
         model = GaussianProcess(input_dim=input_dim, output_dim=output_dim, normalize=normalize, *args, **kwargs)
         super().__init__(input_dim, output_dim, model)
+        self.fixed_kernel_params = fixed_kernel_params
+        self.normalization_stats = normalization_stats
         self.model = model
+        if f_norm_bound is float:
+            f_norm_bound = jnp.ones(output_dim) * f_norm_bound
         self.f_norm_bound = f_norm_bound
         self.delta = delta
         self.num_training_steps = num_training_steps
         if isinstance(beta, chex.Array):
             beta = optax.constant_schedule(beta)
         self._potential_beta = beta
+        if isinstance(num_training_steps, int):
+            self.num_training_steps = optax.constant_schedule(num_training_steps)
+        else:
+            self.num_training_steps = num_training_steps
 
     def update(self, stats_model_state: StatisticalModelState, data: Data) -> StatisticalModelState[GPModelState]:
-        new_model_state = self.model.fit_model(data, self.num_training_steps, stats_model_state.model_state)
+        size = len(data.inputs)
+        num_training_steps = int(self.num_training_steps(size))
+        if self.fixed_kernel_params:
+            new_model_state = GPModelState(history=data, data_stats=self.normalization_stats,
+                                           params=stats_model_state.model_state.params)
+        else:
+            new_model_state = self.model.fit_model(data, num_training_steps, stats_model_state.model_state)
+
         if self._potential_beta is None:
             beta = self.compute_beta(new_model_state, data)
             return StatisticalModelState(model_state=new_model_state, beta=beta)
@@ -74,8 +92,12 @@ if __name__ == '__main__':
     data_std = noise_level * jnp.ones(shape=(output_dim,))
     data = Data(inputs=xs, outputs=ys)
 
-    model = GPStatisticalModel(input_dim=input_dim, output_dim=output_dim, output_stds=data_std, logging_wandb=False,
-                               f_norm_bound=3, beta=None)
+    model = GPStatisticalModel(input_dim=input_dim,
+                               output_dim=output_dim,
+                               output_stds=data_std,
+                               logging_wandb=False,
+                               f_norm_bound=3,
+                               beta=None)
     init_statistical_model_state = model.init(key=jr.PRNGKey(0))
     statistical_model_state = model.update(stats_model_state=init_statistical_model_state, data=data)
 

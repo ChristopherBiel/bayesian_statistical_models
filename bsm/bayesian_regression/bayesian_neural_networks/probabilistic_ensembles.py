@@ -42,7 +42,7 @@ class ProbabilisticEnsemble(DeterministicEnsemble):
         out = self.model.apply({'params': params}, x)
         mu, sig = jnp.split(out, 2, axis=-1)
         sig = nn.softplus(sig)
-        sig = jnp.clip(sig, 0, self.sig_max) + self.sig_min
+        sig = jnp.clip(sig, self.sig_min, self.sig_max)
         mean = self.normalizer.denormalize(mu, data_stats.outputs)
         std = self.normalizer.denormalize_std(sig, data_stats.outputs)
         return mean, std
@@ -76,7 +76,7 @@ if __name__ == '__main__':
             group='test group',
         )
 
-    model_state = model.fit_model(data=data, num_epochs=1000, model_state=model_state)
+    model_state = model.fit_model(data=data, num_training_steps=1000, model_state=model_state)
     print(f'Training time: {time.time() - start_time:.2f} seconds')
 
     test_xs = jnp.linspace(-3, 13, 1000).reshape(-1, 1)

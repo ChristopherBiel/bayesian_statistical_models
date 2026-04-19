@@ -9,13 +9,12 @@ import flax
 from flax import linen as nn
 import jax
 import jax.numpy as jnp
+import numpy as np
 import jax.random as jr
 import jax.tree_util as jtu
 import optax
-from brax.training.replay_buffers import UniformSamplingQueue, ReplayBufferState
 from jax import jit
 from jax import vmap
-from jax.lax import scan
 from jax.scipy.stats import norm
 from jaxtyping import PyTree
 
@@ -52,7 +51,8 @@ class BayesianNeuralNet(BayesianRegressionModel[BNNState]):
                  eval_frequency: int | None = None,
                  return_best_model: bool = False,
                  max_buffer_size: int = 1_000_000,
-                 include_aleatoric_std_for_calibration: bool = False,
+                 include_aleatoric_std_for_calibration: bool = True,
+                 calibration: bool = True,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.num_particles = num_particles
@@ -71,18 +71,8 @@ class BayesianNeuralNet(BayesianRegressionModel[BNNState]):
         assert not (eval_frequency is None and self.return_best_model), "cannot return best model if not " \
                                                                         "evaluating"
         self._eval_frequency = eval_frequency
-        self.set_up_data_buffers()
         self.include_aleatoric_std_for_calibration = include_aleatoric_std_for_calibration
-
-    def set_up_data_buffers(self):
-        dummy_data_sample = Data(inputs=jnp.zeros(self.input_dim), outputs=jnp.zeros(self.output_dim))
-        self.train_buffer = UniformSamplingQueue(max_replay_size=self.max_buffer_size,
-                                                 dummy_data_sample=dummy_data_sample,
-                                                 sample_batch_size=self.batch_size)
-
-        self.eval_buffer = UniformSamplingQueue(max_replay_size=self.max_buffer_size,
-                                                dummy_data_sample=dummy_data_sample,
-                                                sample_batch_size=self.eval_batch_size)
+        self.calibration = calibration
 
     @property
     def evaluation_frequency(self):
@@ -275,7 +265,7 @@ class BayesianNeuralNet(BayesianRegressionModel[BNNState]):
             means, epistemic_stds = predicted_outputs.mean(axis=0), predicted_outputs.std(axis=0)
             if self.include_aleatoric_std_for_calibration:
                 aleatoric_var = (predicted_stds ** 2).mean(axis=0)
-                std = alpha * jnp.sqrt(epistemic_stds ** 2 + aleatoric_var)
+                std = jnp.sqrt((epistemic_stds * alpha) ** 2 + aleatoric_var)
                 chex.assert_shape(std, (self.output_dim,))
                 cdfs = vmap(norm.cdf)(y, means, std)
             else:
@@ -292,75 +282,70 @@ class BayesianNeuralNet(BayesianRegressionModel[BNNState]):
         cdfs = vmap(calculate_score)(inputs, outputs)
         return jnp.mean(cdfs, axis=0)
 
-    @partial(jax.jit, static_argnums=(0, 1))
+    def evaluate_model(self,
+                       vmapped_params: PyTree,
+                       eval_data: Data,
+                       data_stats: DataStats) -> OrderedDict:
+        eval_nll, eval_mse = self.loss(vmapped_params, eval_data.inputs,
+                                       eval_data.outputs, data_stats)
+        eval_stats = OrderedDict(eval_nll=eval_nll, eval_mse=eval_mse)
+
+        return eval_stats
+
+    @staticmethod
+    def sample_batch(data: Data, batch_size: int, rng: jr.PRNGKey):
+        size = len(data.inputs)
+        ind = jr.randint(rng, (batch_size,), 0, size)
+        data_batch = Data(
+            inputs=data.inputs[ind],
+            outputs=data.outputs[ind]
+        )
+        return data_batch
+
     def _train_model(self,
-                     num_epochs: int,
+                     num_training_steps: int,
                      model_state: BNNState,
                      data_stats: DataStats,
-                     train_buffer_state: ReplayBufferState,
-                     eval_buffer_state: ReplayBufferState) -> [BNNState, OrderedDict, OrderedDict]:
+                     train_data: Data,
+                     eval_data: Data,
+                     rng: jr.PRNGKey,
+                     ) -> BNNState:
 
         vmapped_params = model_state.vmapped_params
         opt_state = self.tx.init(vmapped_params)
-
-        eval_frequency = self.evaluation_frequency
-
-        best_nll = 1e12
-
-        def evaluate_model(vmapped_params, eval_data, stats, best_params, best_nll):
-            eval_nll, eval_mse = self.loss(vmapped_params, eval_data.inputs,
-                                           eval_data.outputs, data_stats)
-            stats = OrderedDict(eval_nll=eval_nll, eval_mse=eval_mse, **stats)
-            test_nll, test_mse = self.loss(best_params, eval_data.inputs,
-                                           eval_data.outputs, data_stats)
-
-            new_best_params, new_best_nll = jax.lax.cond(
-                eval_nll < test_nll,
-                lambda: (vmapped_params, eval_nll),
-                lambda: (best_params, test_nll)
-            )
-            return stats, new_best_params, new_best_nll
-
-        def skip_evaluation(vmapped_params, eval_data, stats, best_params, best_nll):
-            stats = OrderedDict(eval_nll=NO_EVAL_VALUE, eval_mse=NO_EVAL_VALUE, **stats)
-            return stats, best_params, best_nll
-
-        def f(carry, ins):
-            opt_state, vmapped_params, buffer_state, best_params, best_nll, eval_buffer_state = carry
-            new_buffer_state, data_batch = self.train_buffer.sample(buffer_state)
+        # convert to numpy array which are cheaper for indexing
+        train_data = Data(inputs=np.asarray(train_data.inputs), outputs=np.asarray(train_data.outputs))
+        eval_data = Data(inputs=np.asarray(eval_data.inputs), outputs=np.asarray(eval_data.outputs))
+        best_statistics = OrderedDict(eval_nll=NO_EVAL_VALUE)
+        evaluated_model = False
+        best_params = vmapped_params
+        for train_step in range(num_training_steps):
+            data_rng, rng = jr.split(rng, 2)
+            data_batch = self.sample_batch(train_data, self.batch_size, data_rng)
             opt_state, vmapped_params, statistics = self.step_jit(opt_state, vmapped_params, data_batch.inputs,
                                                                   data_batch.outputs, data_stats)
+            if train_step % self.evaluation_frequency == 0:
+                evaluated_model = True
+                eval_rng, rng = jr.split(rng, 2)
+                eval_data_batch = self.sample_batch(eval_data, self.eval_batch_size, eval_rng)
+                eval_statistics = self.evaluate_model(vmapped_params=vmapped_params, eval_data=eval_data_batch,
+                                                      data_stats=data_stats)
+                statistics.update(eval_statistics)
+                if best_statistics['eval_nll'] > statistics['eval_nll']:
+                    best_statistics = OrderedDict(eval_nll=statistics['eval_nll'])
+                    best_params = vmapped_params
+            if self.logging_wandb and train_step % self.logging_frequency == 0:
+                wandb.log(statistics)
 
-            new_eval_buffer_state, eval_data_batch = self.eval_buffer.sample(eval_buffer_state)
+        if self.return_best_model and evaluated_model:
+            final_params = best_params
+        else:
+            final_params = vmapped_params
 
-            statistics, best_params, best_nll = jax.lax.cond(
-                ins % eval_frequency,
-                skip_evaluation,
-                evaluate_model,
-                vmapped_params,
-                eval_data_batch,
-                statistics,
-                best_params,
-                best_nll
-            )
-
-            return (opt_state, vmapped_params, new_buffer_state, best_params, best_nll, new_eval_buffer_state), \
-                statistics
-
-        init_carry = (opt_state, vmapped_params, train_buffer_state, vmapped_params, best_nll, eval_buffer_state)
-        iterations = jnp.arange(start=0, step=1, stop=num_epochs, dtype=jnp.int32)
-        (opt_state, vmapped_params, buffer_state, best_params, best_nll, eval_buffer_state), statistics = \
-            scan(f, init_carry, iterations, length=num_epochs)
-
-        train_statistics = OrderedDict(nll=statistics['nll'], mse=statistics['mse'])
-        eval_statistics = OrderedDict(eval_nll=statistics['eval_nll'], eval_mse=statistics['eval_mse'])
-        desired_params = vmapped_params
-        if self.return_best_model:
-            desired_params = best_params
         calibrate_alpha = jnp.ones(self.output_dim)
-        new_model_state = BNNState(data_stats=data_stats, vmapped_params=desired_params,
+        new_model_state = BNNState(data_stats=data_stats, vmapped_params=final_params,
                                    calibration_alpha=calibrate_alpha)
-        return new_model_state, train_statistics, eval_statistics
+        return new_model_state
 
     def _prepare_data_for_training(self, data: Data) -> [DataStats, Data, Data]:
         data_stats = self.normalizer.compute_stats(data)
@@ -379,32 +364,21 @@ class BayesianNeuralNet(BayesianRegressionModel[BNNState]):
             eval_data = permuted_data
         return data_stats, train_data, eval_data
 
-    def fit_model(self, data: Data, num_epochs: int, model_state: BNNState) -> BNNState:
-
-        self.key, key_buffer, key_eval_buffer = jr.split(self.key, 3)
-        buffer_state = self.train_buffer.init(key_buffer)
-        eval_buffer_state = self.eval_buffer.init(key_eval_buffer)
-
+    def fit_model(self, data: Data, num_training_steps: int, model_state: BNNState) -> BNNState:
+        self.key, key_train = jr.split(self.key, 2)
         data_stats, train_data, eval_data = self._prepare_data_for_training(data)
 
-        train_buffer_state = self.train_buffer.insert(buffer_state, train_data)
-        eval_buffer_state = self.eval_buffer.insert(eval_buffer_state, eval_data)
-        eval_frequency = self.evaluation_frequency
-        new_model_state, train_statistics, eval_statistics = self._train_model(num_epochs,
-                                                                               model_state,
-                                                                               data_stats,
-                                                                               train_buffer_state,
-                                                                               eval_buffer_state
-                                                                               )
-
-        if self.logging_wandb:
-            for i in range(num_epochs):
-                wandb.log(jtu.tree_map(lambda x: x[i], train_statistics))
-                if i % eval_frequency == 0:
-                    wandb.log(jtu.tree_map(lambda x: x[i], eval_statistics))
-        if self.train_share > 0:
+        new_model_state = self._train_model(num_training_steps,
+                                            model_state,
+                                            data_stats,
+                                            train_data,
+                                            eval_data,
+                                            key_train
+                                            )
+        if self.train_share < 1 and self.calibration:
             if eval_data.inputs.shape[0] > self.eval_batch_size:
-                new_eval_buffer_state, data_batch = self.eval_buffer.sample(eval_buffer_state)
+                self.key, eval_key = jr.split(self.key, 2)
+                data_batch = self.sample_batch(eval_data, self.eval_batch_size, eval_key)
                 calibrate_alpha = self.calibrate(new_model_state.vmapped_params, data_batch.inputs, data_batch.outputs,
                                                  data_stats)
             else:

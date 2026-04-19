@@ -190,7 +190,7 @@ class DeterministicGRUEnsemble(DeterministicEnsemble):
             means, epistemic_stds = predicted_outputs.mean(axis=0), predicted_outputs.std(axis=0)
             aleatoric_var = jnp.square(predicted_stds).mean(axis=0)
             if self.include_aleatoric_std_for_calibration:
-                std = jnp.sqrt(epistemic_stds ** 2 + aleatoric_var) * alpha
+                std = jnp.sqrt((epistemic_stds * alpha) ** 2 + aleatoric_var)
             else:
                 std = epistemic_stds * alpha
             cdfs = vmap(norm.cdf)(y, means, std)
@@ -224,8 +224,8 @@ class DeterministicGRUEnsemble(DeterministicEnsemble):
             eval_data = permuted_data
         return data_stats, train_data, eval_data
 
-    def fit_model(self, data: Data, num_epochs: int, model_state: RNNState) -> RNNState:
-        bnn_state = super().fit_model(data, num_epochs, model_state)
+    def fit_model(self, data: Data, num_training_steps: int, model_state: RNNState) -> RNNState:
+        bnn_state = super().fit_model(data, num_training_steps, model_state)
         return RNNState(
             vmapped_params=bnn_state.vmapped_params,
             data_stats=bnn_state.data_stats,
@@ -296,7 +296,7 @@ class ProbabilisticGRUEnsemble(DeterministicGRUEnsemble):
         out = out.reshape(2 * self.output_dim) if ndim == 1 else out
         mean, sig = jnp.split(out, 2, axis=-1)
         sig = nn.softplus(sig)
-        sig = jnp.clip(sig, 0, self.sig_max) + self.sig_min
+        sig = jnp.clip(sig, self.sig_min, self.sig_max)
         assert mean.shape[-1] == self.output_dim and sig.shape[-1] == self.output_dim
         assert new_hidden_state.shape[-1] == self.hidden_size
         return new_hidden_state, mean, sig
@@ -328,7 +328,7 @@ if __name__ == '__main__':
                                      hidden_state_size=20,
                                      num_cells=1, num_particles=num_particles, output_stds=data_std,
                                      train_sequence_length=window_size,
-                                     logging_wandb=log_training, eval_frequency=5, return_best_model=True)
+                                     logging_wandb=log_training, eval_frequency=500, return_best_model=True)
     init_model_state = model.init(model.key)
     start_time = time.time()
     print('Starting with training')
@@ -338,7 +338,7 @@ if __name__ == '__main__':
             group='test group',
         )
 
-    model_params = model.fit_model(data, num_epochs=2000, model_state=init_model_state)
+    model_params = model.fit_model(data, num_training_steps=5000, model_state=init_model_state)
     print(f'Training time: {time.time() - start_time:.2f} seconds')
 
     test_xs = jnp.linspace(-5, 15, 1000).reshape(-1, 1)
